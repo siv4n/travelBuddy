@@ -40,4 +40,65 @@ class FirebasePostDataSource(
             AppResult.Error(e.message ?: "Failed to create post", e)
         }
     }
+
+    suspend fun getPostById(postId: String): AppResult<Post> {
+        return try {
+            val doc = firestore.collection("posts").document(postId).get().await()
+            val post = doc.toObject(Post::class.java)
+            if (post != null) AppResult.Success(post)
+            else AppResult.Error("Post not found")
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to get post", e)
+        }
+    }
+
+    suspend fun isPostLiked(postId: String): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        val docId = "${uid}_${postId}"
+        val doc = firestore.collection("likes").document(docId).get().await()
+        return doc.exists()
+    }
+
+    suspend fun isPostSaved(postId: String): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        val docId = "${uid}_${postId}"
+        val doc = firestore.collection("saves").document(docId).get().await()
+        return doc.exists()
+    }
+
+    suspend fun toggleLike(postId: String): AppResult<Boolean> {
+        val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
+        val docId = "${uid}_${postId}"
+        val ref = firestore.collection("likes").document(docId)
+        return try {
+            val doc = ref.get().await()
+            if (doc.exists()) {
+                ref.delete().await()
+                AppResult.Success(false)
+            } else {
+                ref.set(mapOf("userId" to uid, "postId" to postId)).await()
+                AppResult.Success(true)
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to toggle like", e)
+        }
+    }
+
+    suspend fun toggleSave(postId: String): AppResult<Boolean> {
+        val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
+        val docId = "${uid}_${postId}"
+        val ref = firestore.collection("saves").document(docId)
+        return try {
+            val doc = ref.get().await()
+            if (doc.exists()) {
+                ref.delete().await()
+                AppResult.Success(false)
+            } else {
+                ref.set(mapOf("userId" to uid, "postId" to postId)).await()
+                AppResult.Success(true)
+            }
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to toggle save", e)
+        }
+    }
 }
