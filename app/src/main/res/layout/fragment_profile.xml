@@ -20,7 +20,7 @@
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#4CAF50"
+                android:background="#0c9968"
                 android:padding="24dp">
 
                 <!-- Using close icon as a logout button for now -->
@@ -174,8 +174,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@android:color/white"
-            app:tabIndicatorColor="#4CAF50"
-            app:tabSelectedTextColor="#4CAF50"
+            app:tabIndicatorColor="#0c9968"
+            app:tabSelectedTextColor="#0c9968"
             app:tabTextColor="#757575">
 
             <com.google.android.material.tabs.TabItem
