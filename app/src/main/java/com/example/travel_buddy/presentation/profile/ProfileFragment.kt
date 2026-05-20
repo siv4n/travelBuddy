@@ -70,7 +70,7 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             findNavController().navigate(R.id.action_profileFragment_to_editProfileFragment)
         }
 
-        binding.buttonLogout.setOnClickListener {
+        binding.buttonLogoutText.setOnClickListener {
             profileViewModel.logout()
         }
 
@@ -128,11 +128,13 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
                 launch {
                     profileViewModel.logoutState.collect { state ->
-                        binding.buttonLogout.isEnabled = state !is UiState.Loading
+                        binding.buttonLogoutText.isEnabled = state !is UiState.Loading
                         when (state) {
                             is UiState.Success -> {
                                 profileViewModel.clearLogoutState()
-                                findNavController().navigate(R.id.action_profileFragment_to_loginFragment)
+                                val intent = android.content.Intent(requireContext(), com.example.travel_buddy.LoginActivity::class.java)
+                                startActivity(intent)
+                                requireActivity().finish()
                             }
                             is UiState.Error -> {
                                 Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
