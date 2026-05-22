@@ -3,47 +3,68 @@ package com.example.travel_buddy
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.travel_buddy.databinding.ActivityLoginBinding
-import com.google.firebase.auth.FirebaseAuth
+import com.example.travel_buddy.presentation.auth.AuthViewModel
+import com.example.travel_buddy.presentation.common.AuthViewModelFactory
+import com.example.travel_buddy.presentation.common.UiState
+import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
-    private lateinit var auth: FirebaseAuth
+    private val authViewModel: AuthViewModel by viewModels { AuthViewModelFactory() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        auth = FirebaseAuth.getInstance()
+        setupListeners()
+        observeState()
+    }
 
+    private fun setupListeners() {
         binding.buttonLogin.setOnClickListener {
             val email = binding.editTextEmail.text.toString().trim()
             val password = binding.editTextPassword.text.toString().trim()
-
-            if (email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, "Please enter email and password", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            auth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this) { task ->
-                    if (task.isSuccessful) {
-                        Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show()
-                        // TODO: Navigate to Main / Home Activity
-                        startActivity(Intent(this, MainActivity::class.java))
-                        finish()
-                    } else {
-                        Toast.makeText(this, "Authentication failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
-                    }
-                }
+            authViewModel.login(email, password)
         }
 
         binding.textViewSignUp.setOnClickListener {
-            // TODO: Navigate to SignUp Activity
-            Toast.makeText(this, "Sign up clicked", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra("destination", "register")
+            startActivity(intent)
+            finish()
+        }
+    }
+
+    private fun observeState() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                authViewModel.loginState.collect { state ->
+                    binding.buttonLogin.isEnabled = state !is UiState.Loading
+
+                    when (state) {
+                        is UiState.Success -> {
+                            Toast.makeText(this@LoginActivity, "Welcome back", Toast.LENGTH_SHORT).show()
+                            authViewModel.clearLoginState()
+                            startActivity(Intent(this@LoginActivity, MainActivity::class.java))
+                            finish()
+                        }
+                        is UiState.Error -> {
+                            Toast.makeText(this@LoginActivity, state.message, Toast.LENGTH_LONG).show()
+                            authViewModel.clearLoginState()
+                        }
+                        UiState.Idle,
+                        UiState.Loading -> Unit
+                    }
+                }
+            }
         }
     }
 }

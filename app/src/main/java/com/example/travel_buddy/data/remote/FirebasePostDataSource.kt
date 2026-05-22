@@ -101,4 +101,49 @@ class FirebasePostDataSource(
             AppResult.Error(e.message ?: "Failed to toggle save", e)
         }
     }
+
+    suspend fun getUserPosts(userId: String): AppResult<List<Post>> {
+        return try {
+            val snapshot = firestore.collection("posts")
+                .whereEqualTo("authorId", userId)
+                .get().await()
+            val posts = snapshot.documents.mapNotNull { it.toObject(Post::class.java) }
+            AppResult.Success(posts)
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to get user posts", e)
+        }
+    }
+
+    suspend fun getUserSavedPosts(userId: String): AppResult<List<Post>> {
+        return try {
+            val savesSnapshot = firestore.collection("saves")
+                .whereEqualTo("userId", userId)
+                .get().await()
+            
+            val postIds = savesSnapshot.documents.mapNotNull { it.getString("postId") }
+            if (postIds.isEmpty()) return AppResult.Success(emptyList())
+            
+            val posts = postIds.mapNotNull { id ->
+                firestore.collection("posts").document(id).get().await().toObject(Post::class.java)
+            }
+            AppResult.Success(posts)
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to get saved posts", e)
+        }
+    }
+
+    suspend fun getUserStats(userId: String): AppResult<Triple<Int, Int, Int>> {
+        return try {
+            val postsCount = firestore.collection("posts")
+                .whereEqualTo("authorId", userId).get().await().size()
+            val likesCount = firestore.collection("likes")
+                .whereEqualTo("userId", userId).get().await().size()
+            val savesCount = firestore.collection("saves")
+                .whereEqualTo("userId", userId).get().await().size()
+            
+            AppResult.Success(Triple(postsCount, likesCount, savesCount))
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to get user stats", e)
+        }
+    }
 }

@@ -36,4 +36,16 @@ class PostRepositoryImpl(
     override suspend fun toggleSave(postId: String): AppResult<Boolean> = withContext(Dispatchers.IO) {
         dataSource.toggleSave(postId)
     }
+
+    override suspend fun getUserPosts(userId: String): AppResult<List<Post>> = withContext(Dispatchers.IO) {
+        dataSource.getUserPosts(userId)
+    }
+
+    override suspend fun getUserSavedPosts(userId: String): AppResult<List<Post>> = withContext(Dispatchers.IO) {
+        dataSource.getUserSavedPosts(userId)
+    }
+
+    override suspend fun getUserStats(userId: String): AppResult<Triple<Int, Int, Int>> = withContext(Dispatchers.IO) {
+        dataSource.getUserStats(userId)
+    }
 }
