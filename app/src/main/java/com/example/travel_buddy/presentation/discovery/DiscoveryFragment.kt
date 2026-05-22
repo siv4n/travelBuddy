@@ -6,10 +6,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.example.travel_buddy.R
 import com.example.travel_buddy.data.model.Post
+import com.example.travel_buddy.di.ServiceLocator
+import kotlinx.coroutines.launch
 import com.example.travel_buddy.databinding.FragmentDiscoveryBinding
 
 class DiscoveryFragment : Fragment() {
@@ -38,10 +41,19 @@ class DiscoveryFragment : Fragment() {
         adapter = TripCardAdapter(
             trips = emptyList(),
             onTripClicked = { post ->
-                Toast.makeText(requireContext(), "Clicked: ${post.title}", Toast.LENGTH_SHORT).show()
+                val bundle = Bundle().apply {
+                    putString("postId", post.postId)
+                }
+                findNavController().navigate(R.id.action_discoveryFragment_to_tripDetailFragment, bundle)
             },
             onLikeClicked = { post ->
-                Toast.makeText(requireContext(), "Liked: ${post.title}", Toast.LENGTH_SHORT).show()
+                lifecycleScope.launch {
+                    val result = ServiceLocator.postRepository.toggleLike(post.postId)
+                    if (result is com.example.travel_buddy.core.common.AppResult.Success) {
+                        val msg = if (result.data) "Liked!" else "Unliked!"
+                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         )
         binding.rvDiscoveryGrid.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
