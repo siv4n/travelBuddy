@@ -27,6 +27,8 @@ class TripDetailFragment : Fragment() {
         TripDetailViewModelFactory(ServiceLocator.postRepository, postId)
     }
 
+    private var lastSavedState: Boolean? = null
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -52,13 +54,20 @@ class TripDetailFragment : Fragment() {
         binding.toolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
-        
+
         binding.ivClose.setOnClickListener {
             findNavController().navigateUp()
         }
 
         binding.ivSave.setOnClickListener {
             viewModel.toggleSave()
+        }
+
+        binding.ivEdit.setOnClickListener {
+            val bundle = Bundle().apply {
+                putString("postId", postId)
+            }
+            findNavController().navigate(R.id.action_tripDetailFragment_to_editPostFragment, bundle)
         }
     }
 
@@ -75,9 +84,6 @@ class TripDetailFragment : Fragment() {
                     binding.tvDescription.text = post.description
                     binding.tvUsername.text = post.authorId
                     binding.tvDate.text = DateFormat.format("MMMM dd, yyyy", Date(post.timestamp))
-                    
-                    // Ideally, use Glide to load post.imageUrl into binding.ivHeaderImage
-                    // Glide.with(requireContext()).load(post.imageUrl).into(binding.ivHeaderImage)
 
                     // Update UI for Save Status
                     if (state.isSaved) {
@@ -85,9 +91,32 @@ class TripDetailFragment : Fragment() {
                     } else {
                         binding.ivSave.setImageResource(R.drawable.ic_bookmark_border)
                     }
-                    
-                    // Note: If you want a Like heart in detail view, you'd add it to the layout
-                    // and toggle it using viewModel.toggleLike()
+
+                    // Notify previous fragment (if any) that saved state changed
+                    val prev = findNavController().previousBackStackEntry
+                    if (prev != null && lastSavedState != null && lastSavedState != state.isSaved) {
+                        prev.savedStateHandle.set("post_saved", post.postId)
+                    }
+                    lastSavedState = state.isSaved
+
+                    // Listen for post edit/delete from EditPostFragment
+                    findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
+                        ?.observe(viewLifecycleOwner) { editedPostId ->
+                            if (editedPostId == postId) {
+                                // Reload the post to show updated content
+                                viewModel.loadData()
+                            }
+                            findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_edited")
+                        }
+
+                    findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
+                        ?.observe(viewLifecycleOwner) { deletedPostId ->
+                            if (deletedPostId == postId) {
+                                // Navigate up since the post no longer exists
+                                findNavController().navigateUp()
+                            }
+                            findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+                        }
                 }
                 is TripDetailState.Error -> {
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
@@ -101,3 +130,4 @@ class TripDetailFragment : Fragment() {
         _binding = null
     }
 }
+

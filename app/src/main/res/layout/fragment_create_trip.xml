@@ -67,12 +67,13 @@
                 app:startIconDrawable="@drawable/ic_location_outline"
                 android:layout_marginBottom="16dp">
 
-                <com.google.android.material.textfield.TextInputEditText
+                <AutoCompleteTextView
                     android:id="@+id/etLocation"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textCapWords"
-                    android:hint="e.g. Barcelona, Spain" />
+                    android:hint="e.g. Barcelona, Spain"
+                    android:completionThreshold="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView

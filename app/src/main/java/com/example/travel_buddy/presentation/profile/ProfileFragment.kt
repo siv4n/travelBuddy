@@ -36,6 +36,11 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentProfileBinding.bind(view)
 
+        // Ensure toolbar back/up works
+        binding.toolbarProfile.setNavigationOnClickListener {
+            findNavController().navigateUp()
+        }
+
         setupRecyclerView()
         setupListeners()
         observeStates()
@@ -44,7 +49,7 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
     private fun setupRecyclerView() {
         adapter = TripCardAdapter(
-            trips = emptyList(),
+            trips = mutableListOf(),
             onTripClicked = { post ->
                 val bundle = Bundle().apply {
                     putString("postId", post.postId)
@@ -52,11 +57,24 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                 findNavController().navigate(R.id.action_profileFragment_to_tripDetailFragment, bundle)
             },
             onLikeClicked = { post ->
+                val current = adapter.getPostById(post.postId) ?: post
+                val optimisticLiked = !current.isLiked
+                val optimisticCount = current.likesCount + if (optimisticLiked) 1 else -1
+                adapter.setLikeState(post.postId, optimisticCount, optimisticLiked)
+
                 lifecycleScope.launch {
-                    val result = ServiceLocator.postRepository.toggleLike(post.postId)
-                    if (result is com.example.travel_buddy.core.common.AppResult.Success) {
-                        val msg = if (result.data) "Liked!" else "Unliked!"
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                    when (val result = ServiceLocator.postRepository.toggleLike(post.postId)) {
+                        is com.example.travel_buddy.core.common.AppResult.Success -> {
+                            val serverLiked = result.data
+                            if (serverLiked != optimisticLiked) {
+                                val correctedCount = current.likesCount + if (serverLiked) 1 else -1
+                                adapter.setLikeState(post.postId, correctedCount, serverLiked)
+                            }
+                        }
+                        is com.example.travel_buddy.core.common.AppResult.Error -> {
+                            adapter.setLikeState(post.postId, current.likesCount, current.isLiked)
+                            Toast.makeText(requireContext(), result.message, Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             }
@@ -91,6 +109,39 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
     private fun observeStates() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Listen for saved-post events from details screen
+                findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_saved")
+                    ?.observe(viewLifecycleOwner) { postId ->
+                        // reload saved trips when a post save state changes
+                        profileViewModel.loadSavedTrips()
+                        findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_saved")
+                    }
+
+                // Listen for post edit events
+                findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
+                    ?.observe(viewLifecycleOwner) { postId ->
+                        // Reload current tab (My Trips or Saved)
+                        val currentTab = binding.tabLayout.selectedTabPosition
+                        if (currentTab == 0) {
+                            profileViewModel.loadMyTrips()
+                        } else {
+                            profileViewModel.loadSavedTrips()
+                        }
+                        findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_edited")
+                    }
+
+                // Listen for post delete events
+                findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
+                    ?.observe(viewLifecycleOwner) { postId ->
+                        // Reload current tab (My Trips or Saved)
+                        val currentTab = binding.tabLayout.selectedTabPosition
+                        if (currentTab == 0) {
+                            profileViewModel.loadMyTrips()
+                        } else {
+                            profileViewModel.loadSavedTrips()
+                        }
+                        findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+                    }
                 launch {
                     profileViewModel.profileState.collect { state ->
                         binding.progressProfile.visibility = if (state is UiState.Loading) View.VISIBLE else View.GONE

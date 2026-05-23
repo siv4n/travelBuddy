@@ -21,8 +21,16 @@ class FirebasePostDataSource(
             
             // Upload image to Firebase Storage
             val imageRef = storage.reference.child("post_images/$postId.jpg")
-            imageRef.putFile(imageUri).await()
-            val downloadUrl = imageRef.downloadUrl.await().toString()
+            try {
+                imageRef.putFile(imageUri).await()
+            } catch (e: Exception) {
+                return AppResult.Error("Image upload failed: ${e.message}", e)
+            }
+            val downloadUrl = try {
+                imageRef.downloadUrl.await().toString()
+            } catch (e: Exception) {
+                return AppResult.Error("Failed to obtain uploaded image URL: ${e.message}", e)
+            }
             
             // Create post document in Firestore
             // Assumes Post model has copy() method (is a data class)
@@ -140,7 +148,7 @@ class FirebasePostDataSource(
                 .whereEqualTo("userId", userId).get().await().size()
             val savesCount = firestore.collection("saves")
                 .whereEqualTo("userId", userId).get().await().size()
-            
+
             AppResult.Success(Triple(postsCount, likesCount, savesCount))
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Failed to get user stats", e)
@@ -152,10 +160,161 @@ class FirebasePostDataSource(
             val snapshot = firestore.collection("posts")
                 .get().await()
             val posts = snapshot.documents.mapNotNull { it.toObject(Post::class.java) }
-            // Sort by timestamp descending locally since Firestore requires compound indexes for ordering
-            AppResult.Success(posts.sortedByDescending { it.timestamp })
+
+            // Enrich posts with author profile and likes/save state
+            val enriched = posts.map { post ->
+                try {
+                    // fetch author profile document
+                    val userDoc = firestore.collection("users").document(post.authorId).get().await()
+                    val authorUsername = userDoc.getString("username") ?: post.authorId
+                    val authorImage = userDoc.getString("imageUrl")
+
+                    // count likes for the post
+                    val likesCount = firestore.collection("likes").whereEqualTo("postId", post.postId).get().await().size()
+
+                    // check if current user liked/saved
+                    val uid = auth.currentUser?.uid
+                    val isLiked = uid?.let { firestore.collection("likes").document("${it}_${post.postId}").get().await().exists() } ?: false
+                    val isSaved = uid?.let { firestore.collection("saves").document("${it}_${post.postId}").get().await().exists() } ?: false
+
+                    post.copy(
+                        likesCount = likesCount,
+                        authorUsername = authorUsername,
+                        authorImageUrl = authorImage,
+                        isLiked = isLiked,
+                        isSaved = isSaved
+                    )
+                } catch (e: Exception) {
+                    post
+                }
+            }
+
+            AppResult.Success(enriched.sortedByDescending { it.timestamp })
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Failed to get all posts", e)
+        }
+    }
+
+    suspend fun updatePost(postId: String, post: Post, imageUri: Uri?): AppResult<Unit> {
+        return try {
+            val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
+
+            // Check if user is the author
+            val existingDoc = firestore.collection("posts").document(postId).get().await()
+            val existingPost = existingDoc.toObject(Post::class.java)
+            if (existingPost?.authorId != uid) {
+                return AppResult.Error("You can only edit your own posts")
+            }
+
+            // Handle image update if provided
+            val imageUrl = if (imageUri != null) {
+                val imageRef = storage.reference.child("post_images/$postId.jpg")
+                imageRef.putFile(imageUri).await()
+                imageRef.downloadUrl.await().toString()
+            } else {
+                existingPost.imageUrl
+            }
+
+            val updatedPost = post.copy(
+                postId = postId,
+                authorId = uid,
+                imageUrl = imageUrl,
+                timestamp = existingPost.timestamp
+            )
+
+            firestore.collection("posts").document(postId).set(updatedPost).await()
+            AppResult.Success(Unit)
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to update post", e)
+        }
+    }
+
+    suspend fun deletePost(postId: String): AppResult<Unit> {
+        return try {
+            val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
+
+            // Check if user is the author
+            val doc = firestore.collection("posts").document(postId).get().await()
+            val post = doc.toObject(Post::class.java)
+            if (post?.authorId != uid) {
+                return AppResult.Error("You can only delete your own posts")
+            }
+
+            // Delete the post image from storage
+            try {
+                val imageRef = storage.reference.child("post_images/$postId.jpg")
+                imageRef.delete().await()
+            } catch (e: Exception) {
+                // Image might not exist, continue with deletion
+            }
+
+            // Delete the post document
+            firestore.collection("posts").document(postId).delete().await()
+
+            // Clean up likes and saves
+            val likesSnapshot = firestore.collection("likes")
+                .whereEqualTo("postId", postId).get().await()
+            likesSnapshot.documents.forEach {
+                firestore.collection("likes").document(it.id).delete().await()
+            }
+
+            val savesSnapshot = firestore.collection("saves")
+                .whereEqualTo("postId", postId).get().await()
+            savesSnapshot.documents.forEach {
+                firestore.collection("saves").document(it.id).delete().await()
+            }
+
+            AppResult.Success(Unit)
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to delete post", e)
+        }
+    }
+
+    suspend fun searchPosts(query: String): AppResult<List<Post>> {
+        return try {
+            if (query.isBlank()) {
+                return AppResult.Success(emptyList())
+            }
+            
+            val lowerQuery = query.lowercase()
+            val snapshot = firestore.collection("posts").get().await()
+            val posts = snapshot.documents.mapNotNull { it.toObject(Post::class.java) }
+            
+            // Filter posts by title, location, or description containing the query
+            val filtered = posts.filter { post ->
+                post.title.lowercase().contains(lowerQuery) ||
+                post.location.lowercase().contains(lowerQuery) ||
+                post.description.lowercase().contains(lowerQuery)
+            }
+            
+            // Enrich filtered posts with author profile and likes/save state (same as getAllPosts)
+            val enriched = filtered.map { post ->
+                try {
+                    val userDoc = firestore.collection("users").document(post.authorId).get().await()
+                    val authorUsername = userDoc.getString("username") ?: post.authorId
+                    val authorImage = userDoc.getString("imageUrl")
+                    
+                    val likesCount = firestore.collection("likes").whereEqualTo("postId", post.postId).get().await().size()
+                    
+                    val uid = auth.currentUser?.uid
+                    val isLiked = uid?.let { firestore.collection("likes").document("${it}_${post.postId}").get().await().exists() } ?: false
+                    val isSaved = uid?.let { firestore.collection("saves").document("${it}_${post.postId}").get().await().exists() } ?: false
+                    
+                    post.copy(
+                        likesCount = likesCount,
+                        authorUsername = authorUsername,
+                        authorImageUrl = authorImage,
+                        isLiked = isLiked,
+                        isSaved = isSaved
+                    )
+                } catch (e: Exception) {
+                    post
+                }
+            }
+            
+            AppResult.Success(enriched.sortedByDescending { it.timestamp })
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to search posts", e)
         }
     }
 }

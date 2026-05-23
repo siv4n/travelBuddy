@@ -16,6 +16,7 @@ import androidx.navigation.fragment.findNavController
 import coil.load
 import com.example.travel_buddy.databinding.FragmentEditPostBinding
 import com.example.travel_buddy.di.ServiceLocator
+import com.example.travel_buddy.domain.service.LocationService
 
 class EditPostFragment : Fragment() {
 
@@ -29,11 +30,7 @@ class EditPostFragment : Fragment() {
     private var isDeleting = false
 
     private val viewModel: EditPostViewModel by viewModels {
-        EditPostViewModelFactory(
-            ServiceLocator.postRepository,
-            ServiceLocator.locationRepository,
-            postId
-        )
+        EditPostViewModelFactory(ServiceLocator.postRepository, postId)
     }
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -66,9 +63,22 @@ class EditPostFragment : Fragment() {
     }
 
     private fun setupLocationAutocomplete() {
+        val locationAdapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_dropdown_item_1line,
+            LocationService.getPopularLocations()
+        )
+        
         (binding.etLocation as? AutoCompleteTextView)?.apply {
+            setAdapter(locationAdapter)
             addTextChangedListener { text ->
-                viewModel.searchLocations(text.toString())
+                val suggestions = LocationService.getSuggestions(text.toString())
+                val adapter = ArrayAdapter(
+                    requireContext(),
+                    android.R.layout.simple_dropdown_item_1line,
+                    suggestions
+                )
+                setAdapter(adapter)
             }
         }
     }
@@ -88,7 +98,7 @@ class EditPostFragment : Fragment() {
             val description = binding.etDescription.text.toString()
             viewModel.updatePost(title, location, description)
         }
-
+ 
         binding.btnDelete.setOnClickListener {
             AlertDialog.Builder(requireContext())
                 .setTitle("Delete Post")
@@ -99,10 +109,6 @@ class EditPostFragment : Fragment() {
                 }
                 .setNegativeButton("Cancel", null)
                 .show()
-        }
-
-        binding.toolbarEditPost.setNavigationOnClickListener {
-            findNavController().navigateUp()
         }
     }
 
@@ -116,15 +122,6 @@ class EditPostFragment : Fragment() {
                     crossfade(true)
                 }
             }
-        }
-
-        viewModel.locationSuggestions.observe(viewLifecycleOwner) { suggestions ->
-            val adapter = ArrayAdapter(
-                requireContext(),
-                android.R.layout.simple_dropdown_item_1line,
-                suggestions
-            )
-            (binding.etLocation as? AutoCompleteTextView)?.setAdapter(adapter)
         }
 
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
@@ -144,9 +141,11 @@ class EditPostFragment : Fragment() {
                     val prev = findNavController().previousBackStackEntry
                     if (isDeleting) {
                         Toast.makeText(requireContext(), "Post deleted successfully!", Toast.LENGTH_SHORT).show()
+                        // Notify previous screens that post was deleted
                         prev?.savedStateHandle?.set("post_deleted", postId)
                     } else {
                         Toast.makeText(requireContext(), "Post updated successfully!", Toast.LENGTH_SHORT).show()
+                        // Notify previous screens that post was edited
                         prev?.savedStateHandle?.set("post_edited", postId)
                     }
                     findNavController().navigateUp()
