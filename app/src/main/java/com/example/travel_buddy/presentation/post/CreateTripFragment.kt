@@ -60,6 +60,10 @@ class CreateTripFragment : Fragment() {
 
             viewModel.createTrip(title, location, description)
         }
+
+        binding.toolbarCreateTrip.setNavigationOnClickListener {
+            findNavController().navigateUp()
+        }
     }
 
     private fun observeViewModel() {

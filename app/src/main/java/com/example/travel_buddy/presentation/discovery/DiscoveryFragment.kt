@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
@@ -21,6 +22,10 @@ class DiscoveryFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var adapter: TripCardAdapter
 
+    private val viewModel: DiscoveryViewModel by viewModels {
+        DiscoveryViewModelFactory(ServiceLocator.postRepository)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -34,7 +39,21 @@ class DiscoveryFragment : Fragment() {
         
         setupRecyclerView()
         setupListeners()
-        loadDummyData()
+        observeViewModel()
+    }
+
+    private fun observeViewModel() {
+        viewModel.uiState.observe(viewLifecycleOwner) { state ->
+            when (state) {
+                is DiscoveryState.Success -> {
+                    adapter.updateData(state.posts)
+                }
+                is DiscoveryState.Error -> {
+                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
+                }
+                else -> Unit
+            }
+        }
     }
 
     private fun setupRecyclerView() {
@@ -68,18 +87,10 @@ class DiscoveryFragment : Fragment() {
         binding.ivFilterBtn.setOnClickListener {
             Toast.makeText(requireContext(), "Filter clicked", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun loadDummyData() {
-        val dummyPosts = listOf(
-            Post(title = "Eiffel Tower Adventure", location = "Paris, France", authorId = "sivan_travels"),
-            Post(title = "Canyon Hike", location = "Arizona, USA", authorId = "hiker_bob"),
-            Post(title = "Machu Picchu Explore", location = "Cusco, Peru", authorId = "explorer_jane"),
-            Post(title = "Santorini Sunset Vibes", location = "Santorini, Greece", authorId = "greece_lover"),
-            Post(title = "Kyoto Temples Walk", location = "Kyoto, Japan", authorId = "ninja_sam"),
-            Post(title = "Banff National Park Trip", location = "Alberta, Canada", authorId = "maple_leaf")
-        )
-        adapter.updateData(dummyPosts)
+        
+        binding.ivProfileHead.setOnClickListener {
+            findNavController().navigate(R.id.action_discoveryFragment_to_profileFragment)
+        }
     }
 
     override fun onDestroyView() {
