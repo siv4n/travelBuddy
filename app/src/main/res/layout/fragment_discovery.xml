@@ -60,9 +60,8 @@
 
         <!-- Search Bar -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:layout_weight="1"
             android:background="@drawable/bg_search_pill"
             android:orientation="horizontal"
             android:gravity="center_vertical"
@@ -88,17 +87,6 @@
                 android:singleLine="true"
                 android:imeOptions="actionSearch"/>
         </LinearLayout>
-
-        <!-- Filter Button -->
-        <ImageView
-            android:id="@+id/ivFilterBtn"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="12dp"
-            android:background="@drawable/bg_circle_outline"
-            android:src="@drawable/ic_filter"
-            android:padding="12dp"
-            app:tint="#757575" />
     </LinearLayout>
 
     <!-- Grid Layout -->
