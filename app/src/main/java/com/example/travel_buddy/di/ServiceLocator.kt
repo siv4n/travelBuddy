@@ -1,6 +1,7 @@
 package com.example.travel_buddy.di
 
 import android.content.Context
+import com.example.travel_buddy.BuildConfig
 import com.example.travel_buddy.data.remote.DestinationApiService
 import com.example.travel_buddy.data.remote.DestinationDataSource
 import com.example.travel_buddy.data.remote.FirebaseAuthDataSource
@@ -82,12 +83,30 @@ object ServiceLocator {
         DestinationRepositoryImpl(dataSource = destinationDataSource)
     }
 
-    // Location API Retrofit instance with separate base URL
+    // Location API Retrofit instance with separate base URL and API key interceptor
+    private val locationOkHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor(HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
+            .addInterceptor { chain ->
+                val originalRequest = chain.request()
+                val urlWithKey = originalRequest.url.newBuilder()
+                    .addQueryParameter("key", BuildConfig.GOOGLE_PLACES_API_KEY)
+                    .build()
+                val requestWithKey = originalRequest.newBuilder()
+                    .url(urlWithKey)
+                    .build()
+                chain.proceed(requestWithKey)
+            }
+            .build()
+    }
+
     private val locationRetrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl("https://maps.googleapis.com/maps/api/")
             .addConverterFactory(GsonConverterFactory.create())
-            .client(okHttpClient)
+            .client(locationOkHttpClient)
             .build()
     }
 
