@@ -14,8 +14,8 @@ class LocationRepositoryImpl(
             dataSource.getLocationSuggestions(query)
         }
 
-    override suspend fun getLocationCoordinates(placeId: String): AppResult<Pair<Double, Double>> =
+    override suspend fun getLocationCoordinates(locationName: String): AppResult<Pair<Double, Double>> =
         withContext(Dispatchers.IO) {
-            dataSource.getPlaceDetails(placeId)
+            dataSource.getLocationCoordinates(locationName)
         }
 }
