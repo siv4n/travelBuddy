@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.travel_buddy.core.common.AppResult
 import com.example.travel_buddy.data.model.Post
 import com.example.travel_buddy.domain.repository.PostRepository
+import com.example.travel_buddy.domain.repository.LocationRepository
 import kotlinx.coroutines.launch
 
 sealed class CreateTripState {
@@ -18,11 +19,18 @@ sealed class CreateTripState {
 }
 
 class CreateTripViewModel(
-    private val repository: PostRepository
+    private val repository: PostRepository,
+    private val locationRepository: LocationRepository
 ) : ViewModel() {
 
     private val _uiState = MutableLiveData<CreateTripState>(CreateTripState.Idle)
     val uiState: LiveData<CreateTripState> = _uiState
+
+    private val _locationSuggestions = MutableLiveData<List<String>>(emptyList())
+    val locationSuggestions: LiveData<List<String>> = _locationSuggestions
+
+    private val _locationLoading = MutableLiveData(false)
+    val locationLoading: LiveData<Boolean> = _locationLoading
 
     private var selectedImageUri: Uri? = null
 
@@ -31,6 +39,27 @@ class CreateTripViewModel(
     }
 
     fun getSelectedImageUri(): Uri? = selectedImageUri
+
+    fun searchLocations(query: String) {
+        viewModelScope.launch {
+            if (query.isBlank()) {
+                _locationSuggestions.value = emptyList()
+                return@launch
+            }
+
+            _locationLoading.value = true
+            when (val result = locationRepository.searchLocations(query)) {
+                is AppResult.Success<*> -> {
+                    @Suppress("UNCHECKED_CAST")
+                    _locationSuggestions.value = (result as AppResult.Success<List<String>>).data
+                }
+                is AppResult.Error -> {
+                    _locationSuggestions.value = emptyList()
+                }
+            }
+            _locationLoading.value = false
+        }
+    }
 
     fun createTrip(title: String, location: String, description: String) {
         if (title.isBlank() || location.isBlank() || description.isBlank()) {

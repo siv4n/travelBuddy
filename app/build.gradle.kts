@@ -1,9 +1,19 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
     alias(libs.plugins.kotlin.android)
 }
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+val googlePlacesApiKey = localProperties.getProperty("GOOGLE_PLACES_API_KEY", "")
 
 android {
     namespace = "com.example.travel_buddy"
@@ -17,6 +27,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "GOOGLE_PLACES_API_KEY", "\"$googlePlacesApiKey\"")
     }
 
     buildTypes {
@@ -35,6 +47,7 @@ android {
     buildFeatures {
         viewBinding = true
         compose = true
+        buildConfig = true
     }
     kotlinOptions {
         jvmTarget = "11"
@@ -61,6 +74,17 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation(libs.io.coil.kt.coil)
     implementation(libs.org.jetbrains.kotlinx.coroutines.play.services)
+
+    // Room Database - commented for now due to Kotlin version compatibility
+    // implementation(libs.room.runtime)
+    // kapt(libs.room.compiler)
+    // implementation(libs.room.ktx)
+
+    // Retrofit
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.json)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
