@@ -9,7 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.travel_buddy.R
 import com.example.travel_buddy.data.model.Post
 import com.example.travel_buddy.di.ServiceLocator
@@ -62,6 +62,18 @@ class DiscoveryFragment : Fragment() {
                 findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_saved")
             }
 
+        // Listen for like/unlike events coming back from detail screen
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Map<String, Any>>("post_liked")
+            ?.observe(viewLifecycleOwner) { data ->
+                val postId = data["postId"] as? String
+                val isLiked = data["isLiked"] as? Boolean
+                val likesCount = data["likesCount"] as? Int
+                if (postId != null && isLiked != null && likesCount != null) {
+                    adapter.setLikeState(postId, likesCount, isLiked)
+                }
+                findNavController().currentBackStackEntry?.savedStateHandle?.remove<Map<String, Any>>("post_liked")
+            }
+
         // Listen for post edit/delete events
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
             ?.observe(viewLifecycleOwner) { postId ->
@@ -102,7 +114,11 @@ class DiscoveryFragment : Fragment() {
             onLikeClicked = { post ->
                 val current = adapter.getPostById(post.postId) ?: post
                 val optimisticLiked = !current.isLiked
-                val optimisticCount = current.likesCount + if (optimisticLiked) 1 else -1
+                val optimisticCount = if (optimisticLiked) {
+                    current.likesCount + 1
+                } else {
+                    (current.likesCount - 1).coerceAtLeast(0)
+                }
                 // apply optimistic update
                 adapter.setLikeState(post.postId, optimisticCount, optimisticLiked)
 
@@ -112,7 +128,11 @@ class DiscoveryFragment : Fragment() {
                             val serverLiked = result.data
                             // if server disagrees, correct UI
                             if (serverLiked != optimisticLiked) {
-                                val correctedCount = current.likesCount + if (serverLiked) 1 else -1
+                                val correctedCount = if (serverLiked) {
+                                    current.likesCount + 1
+                                } else {
+                                    (current.likesCount - 1).coerceAtLeast(0)
+                                }
                                 adapter.setLikeState(post.postId, correctedCount, serverLiked)
                             }
                         }
@@ -125,7 +145,7 @@ class DiscoveryFragment : Fragment() {
                 }
             }
         )
-        binding.rvDiscoveryGrid.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+        binding.rvDiscoveryGrid.layoutManager = LinearLayoutManager(requireContext())
         binding.rvDiscoveryGrid.adapter = adapter
     }
 

@@ -89,7 +89,7 @@ class CreateTripFragment : Fragment() {
             viewModel.createTrip(title, location, description)
         }
 
-        binding.toolbarCreateTrip.setNavigationOnClickListener {
+        binding.ivBackCreateTrip.setOnClickListener {
             findNavController().navigateUp()
         }
     }

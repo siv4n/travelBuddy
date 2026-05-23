@@ -12,10 +12,13 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import coil.load
 import com.example.travel_buddy.databinding.FragmentEditPostBinding
 import com.example.travel_buddy.di.ServiceLocator
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 class EditPostFragment : Fragment() {
 
@@ -110,16 +113,22 @@ class EditPostFragment : Fragment() {
     private fun observeViewModel() {
         viewModel.postData.observe(viewLifecycleOwner) { post ->
             if (post != null) {
-                binding.etTitle.setText(post.title)
-                binding.etLocation.setText(post.location, false)
-                binding.etDescription.setText(post.description)
-                if (!post.imageUrl.isNullOrEmpty()) {
-                    binding.ivTripPreview.load(post.imageUrl) {
-                        crossfade(true)
-                    }
-                    binding.ivTripPreview.visibility = View.VISIBLE
+                val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+                if (currentUserId == null || post.authorId != currentUserId) {
+                    Toast.makeText(requireContext(), "You can only edit your own posts", Toast.LENGTH_SHORT).show()
+                    findNavController().navigateUp()
                 } else {
-                    binding.ivTripPreview.visibility = View.GONE
+                    binding.etTitle.setText(post.title)
+                    binding.etLocation.setText(post.location, false)
+                    binding.etDescription.setText(post.description)
+                    if (!post.imageUrl.isNullOrEmpty()) {
+                        binding.ivTripPreview.load(post.imageUrl) {
+                            crossfade(true)
+                        }
+                        binding.ivTripPreview.visibility = View.VISIBLE
+                    } else {
+                        binding.ivTripPreview.visibility = View.GONE
+                    }
                 }
             }
         }

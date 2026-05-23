@@ -10,8 +10,10 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.appcompat.widget.PopupMenu
+import androidx.core.content.ContextCompat
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import coil.load
 import com.example.travel_buddy.R
 import com.example.travel_buddy.data.model.Post
@@ -36,15 +38,19 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentProfileBinding.bind(view)
 
-        // Ensure toolbar back/up works
-        binding.toolbarProfile.setNavigationOnClickListener {
+        binding.ivBack.setOnClickListener {
             findNavController().navigateUp()
+        }
+
+        binding.ivSettings.setOnClickListener {
+            showSettingsMenu(it)
         }
 
         setupRecyclerView()
         setupListeners()
         observeStates()
         profileViewModel.loadProfile()
+        binding.tabLayout.getTabAt(1)?.select()
     }
 
     private fun setupRecyclerView() {
@@ -59,7 +65,11 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             onLikeClicked = { post ->
                 val current = adapter.getPostById(post.postId) ?: post
                 val optimisticLiked = !current.isLiked
-                val optimisticCount = current.likesCount + if (optimisticLiked) 1 else -1
+                val optimisticCount = if (optimisticLiked) {
+                    current.likesCount + 1
+                } else {
+                    (current.likesCount - 1).coerceAtLeast(0)
+                }
                 adapter.setLikeState(post.postId, optimisticCount, optimisticLiked)
 
                 lifecycleScope.launch {
@@ -67,7 +77,11 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                         is com.example.travel_buddy.core.common.AppResult.Success -> {
                             val serverLiked = result.data
                             if (serverLiked != optimisticLiked) {
-                                val correctedCount = current.likesCount + if (serverLiked) 1 else -1
+                                val correctedCount = if (serverLiked) {
+                                    current.likesCount + 1
+                                } else {
+                                    (current.likesCount - 1).coerceAtLeast(0)
+                                }
                                 adapter.setLikeState(post.postId, correctedCount, serverLiked)
                             }
                         }
@@ -79,19 +93,11 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                 }
             }
         )
-        binding.rvProfileTrips.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+        binding.rvProfileTrips.layoutManager = LinearLayoutManager(requireContext())
         binding.rvProfileTrips.adapter = adapter
     }
 
     private fun setupListeners() {
-        binding.buttonEditProfile.setOnClickListener {
-            findNavController().navigate(R.id.action_profileFragment_to_editProfileFragment)
-        }
-
-        binding.buttonLogoutText.setOnClickListener {
-            profileViewModel.logout()
-        }
-
         binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 if (tab?.position == 0) {
@@ -106,6 +112,38 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         })
     }
 
+    private fun showSettingsMenu(anchor: View) {
+        PopupMenu(requireContext(), anchor).apply {
+            menuInflater.inflate(R.menu.profile_settings_menu, menu)
+            setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    R.id.action_edit_profile -> {
+                        findNavController().navigate(R.id.action_profileFragment_to_editProfileFragment)
+                        true
+                    }
+                    R.id.action_logout -> {
+                        profileViewModel.logout()
+                        true
+                    }
+                    else -> false
+                }
+            }
+            setForceShowIcon(true)
+            try {
+                val field = javaClass.getDeclaredField("mPopup")
+                field.isAccessible = true
+                val helper = field.get(this)
+                helper.javaClass.getDeclaredMethod("setBackgroundDrawable", android.graphics.drawable.Drawable::class.java)
+                    ?.invoke(helper, ContextCompat.getDrawable(requireContext(), R.drawable.bg_profile_menu_popup))
+                helper.javaClass.getDeclaredMethod("setForceShowIcon", Boolean::class.javaPrimitiveType)
+                    ?.invoke(helper, true)
+            } catch (_: Exception) {
+                // Popup icons are optional if the internal helper is unavailable.
+            }
+            show()
+        }
+    }
+
     private fun observeStates() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -115,6 +153,18 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                         // reload saved trips when a post save state changes
                         profileViewModel.loadSavedTrips()
                         findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_saved")
+                    }
+
+                // Listen for like/unlike events from details screen
+                findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Map<String, Any>>("post_liked")
+                    ?.observe(viewLifecycleOwner) { data ->
+                        val postId = data["postId"] as? String
+                        val isLiked = data["isLiked"] as? Boolean
+                        val likesCount = data["likesCount"] as? Int
+                        if (postId != null && isLiked != null && likesCount != null) {
+                            adapter.setLikeState(postId, likesCount, isLiked)
+                        }
+                        findNavController().currentBackStackEntry?.savedStateHandle?.remove<Map<String, Any>>("post_liked")
                     }
 
                 // Listen for post edit events
@@ -179,7 +229,6 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
                 launch {
                     profileViewModel.logoutState.collect { state ->
-                        binding.buttonLogoutText.isEnabled = state !is UiState.Loading
                         when (state) {
                             is UiState.Success -> {
                                 profileViewModel.clearLogoutState()

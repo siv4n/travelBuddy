@@ -12,8 +12,38 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:background="#FFFFFF"
-        app:navigationIcon="@drawable/ic_arrow_back"
-        app:title="Create Trip" />
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="end|center_vertical"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="Create Trip"
+                android:textColor="#212121"
+                android:textSize="18sp" />
+
+            <ImageView
+                android:id="@+id/ivBackCreateTrip"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_profile_icon_button"
+                android:contentDescription="Return"
+                android:padding="4dp"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="#000000"
+                android:clickable="true"
+                android:focusable="true"/>
+        </LinearLayout>
+    </androidx.appcompat.widget.Toolbar>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -27,10 +57,11 @@
             android:padding="24dp">
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Trip Title *"
                 android:textColor="#424242"
+                android:textAlignment="viewEnd"
                 android:textSize="14sp"
                 android:layout_marginBottom="4dp"/>
 
@@ -47,14 +78,17 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textCapSentences"
+                    android:textAlignment="viewEnd"
+                    android:gravity="end"
                     android:hint="e.g. Weekend in Barcelona" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Location *"
                 android:textColor="#424242"
+                android:textAlignment="viewEnd"
                 android:textSize="14sp"
                 android:layout_marginBottom="4dp"/>
 
@@ -72,15 +106,18 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="textCapWords"
+                    android:textAlignment="viewEnd"
+                    android:gravity="end"
                     android:hint="e.g. Barcelona, Spain"
                     android:completionThreshold="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Description *"
                 android:textColor="#424242"
+                android:textAlignment="viewEnd"
                 android:textSize="14sp"
                 android:layout_marginBottom="4dp"/>
 
@@ -96,17 +133,19 @@
                     android:id="@+id/etDescription"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="top|start"
+                    android:gravity="top|end"
+                    android:textAlignment="viewEnd"
                     android:inputType="textMultiLine|textCapSentences"
                     android:minLines="5"
                     android:hint="Share your experience..." />
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Photos"
                 android:textColor="#424242"
+                android:textAlignment="viewEnd"
                 android:textSize="14sp"
                 android:layout_marginBottom="8dp"/>
 
