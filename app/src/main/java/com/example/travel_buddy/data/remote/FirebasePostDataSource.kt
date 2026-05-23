@@ -53,8 +53,30 @@ class FirebasePostDataSource(
         return try {
             val doc = firestore.collection("posts").document(postId).get().await()
             val post = doc.toObject(Post::class.java)
-            if (post != null) AppResult.Success(post)
-            else AppResult.Error("Post not found")
+            if (post != null) {
+                val enriched = try {
+                    val userDoc = firestore.collection("users").document(post.authorId).get().await()
+                    val authorUsername = userDoc.getString("username") ?: post.authorId
+                    val authorImage = userDoc.getString("imageUrl")
+
+                    val likesCount = firestore.collection("likes").whereEqualTo("postId", postId).get().await().size()
+
+                    val uid = auth.currentUser?.uid
+                    val isLiked = uid?.let { firestore.collection("likes").document("${it}_${postId}").get().await().exists() } ?: false
+                    val isSaved = uid?.let { firestore.collection("saves").document("${it}_${postId}").get().await().exists() } ?: false
+
+                    post.copy(
+                        likesCount = likesCount,
+                        authorUsername = authorUsername,
+                        authorImageUrl = authorImage,
+                        isLiked = isLiked,
+                        isSaved = isSaved
+                    )
+                } catch (e: Exception) {
+                    post
+                }
+                AppResult.Success(enriched)
+            } else AppResult.Error("Post not found")
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Failed to get post", e)
         }
@@ -116,7 +138,31 @@ class FirebasePostDataSource(
                 .whereEqualTo("authorId", userId)
                 .get().await()
             val posts = snapshot.documents.mapNotNull { it.toObject(Post::class.java) }
-            AppResult.Success(posts)
+
+            val enriched = posts.map { post ->
+                try {
+                    val userDoc = firestore.collection("users").document(post.authorId).get().await()
+                    val authorUsername = userDoc.getString("username") ?: post.authorId
+                    val authorImage = userDoc.getString("imageUrl")
+
+                    val likesCount = firestore.collection("likes").whereEqualTo("postId", post.postId).get().await().size()
+
+                    val uid = auth.currentUser?.uid
+                    val isLiked = uid?.let { firestore.collection("likes").document("${it}_${post.postId}").get().await().exists() } ?: false
+                    val isSaved = uid?.let { firestore.collection("saves").document("${it}_${post.postId}").get().await().exists() } ?: false
+
+                    post.copy(
+                        likesCount = likesCount,
+                        authorUsername = authorUsername,
+                        authorImageUrl = authorImage,
+                        isLiked = isLiked,
+                        isSaved = isSaved
+                    )
+                } catch (e: Exception) {
+                    post
+                }
+            }
+            AppResult.Success(enriched.sortedByDescending { it.timestamp })
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Failed to get user posts", e)
         }
@@ -127,14 +173,38 @@ class FirebasePostDataSource(
             val savesSnapshot = firestore.collection("saves")
                 .whereEqualTo("userId", userId)
                 .get().await()
-            
+
             val postIds = savesSnapshot.documents.mapNotNull { it.getString("postId") }
             if (postIds.isEmpty()) return AppResult.Success(emptyList())
-            
+
             val posts = postIds.mapNotNull { id ->
                 firestore.collection("posts").document(id).get().await().toObject(Post::class.java)
             }
-            AppResult.Success(posts)
+
+            val enriched = posts.map { post ->
+                try {
+                    val userDoc = firestore.collection("users").document(post.authorId).get().await()
+                    val authorUsername = userDoc.getString("username") ?: post.authorId
+                    val authorImage = userDoc.getString("imageUrl")
+
+                    val likesCount = firestore.collection("likes").whereEqualTo("postId", post.postId).get().await().size()
+
+                    val uid = auth.currentUser?.uid
+                    val isLiked = uid?.let { firestore.collection("likes").document("${it}_${post.postId}").get().await().exists() } ?: false
+                    val isSaved = uid?.let { firestore.collection("saves").document("${it}_${post.postId}").get().await().exists() } ?: false
+
+                    post.copy(
+                        likesCount = likesCount,
+                        authorUsername = authorUsername,
+                        authorImageUrl = authorImage,
+                        isLiked = isLiked,
+                        isSaved = isSaved
+                    )
+                } catch (e: Exception) {
+                    post
+                }
+            }
+            AppResult.Success(enriched.sortedByDescending { it.timestamp })
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Failed to get saved posts", e)
         }

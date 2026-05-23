@@ -13,7 +13,9 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.example.travel_buddy.R
 import com.example.travel_buddy.data.model.Post
 import com.example.travel_buddy.di.ServiceLocator
-import androidx.lifecycle.lifecycleScope
+import androidx.core.widget.addTextChangedListener
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 import com.example.travel_buddy.databinding.FragmentDiscoveryBinding
@@ -23,6 +25,7 @@ class DiscoveryFragment : Fragment() {
     private var _binding: FragmentDiscoveryBinding? = null
     private val binding get() = _binding!!
     private lateinit var adapter: TripCardAdapter
+    private var searchJob: Job? = null
 
     private val viewModel: DiscoveryViewModel by viewModels {
         DiscoveryViewModelFactory(ServiceLocator.postRepository)
@@ -131,17 +134,18 @@ class DiscoveryFragment : Fragment() {
             findNavController().navigate(R.id.action_discoveryFragment_to_createTripFragment)
         }
 
-        binding.ivFilterBtn.setOnClickListener {
-            Toast.makeText(requireContext(), "Filter clicked", Toast.LENGTH_SHORT).show()
-        }
-
         binding.ivProfileHead.setOnClickListener {
             findNavController().navigate(R.id.action_discoveryFragment_to_profileFragment)
         }
 
-        // Navigate to search when search bar is clicked
-        binding.etSearch.setOnClickListener {
-            findNavController().navigate(R.id.action_discoveryFragment_to_searchFragment)
+        // Debounced in-place search logic directly on DiscoveryFragment
+        binding.etSearch.addTextChangedListener { text ->
+            searchJob?.cancel()
+            searchJob = lifecycleScope.launch {
+                delay(500)
+                val query = text?.toString()?.trim().orEmpty()
+                viewModel.searchPosts(query)
+            }
         }
     }
 

@@ -15,7 +15,6 @@ import androidx.navigation.fragment.findNavController
 import com.example.travel_buddy.databinding.FragmentCreateTripBinding
 import com.google.android.material.snackbar.Snackbar
 import com.example.travel_buddy.di.ServiceLocator
-import com.example.travel_buddy.domain.service.LocationService
 import com.example.travel_buddy.presentation.util.LocationPermissionHelper
 
 class CreateTripFragment : Fragment() {
@@ -24,7 +23,10 @@ class CreateTripFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: CreateTripViewModel by viewModels {
-        CreateTripViewModelFactory(ServiceLocator.postRepository)
+        CreateTripViewModelFactory(
+            ServiceLocator.postRepository,
+            ServiceLocator.locationRepository
+        )
     }
 
     private lateinit var locationPermissionHelper: LocationPermissionHelper
@@ -33,6 +35,7 @@ class CreateTripFragment : Fragment() {
         if (uri != null) {
             viewModel.setImageUri(uri)
             binding.ivTripPreview.setImageURI(uri)
+            binding.ivTripPreview.visibility = View.VISIBLE
         }
     }
 
@@ -54,22 +57,9 @@ class CreateTripFragment : Fragment() {
     }
 
     private fun setupLocationAutocomplete() {
-        val locationAdapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            LocationService.getPopularLocations()
-        )
-        
         (binding.etLocation as? AutoCompleteTextView)?.apply {
-            setAdapter(locationAdapter)
             addTextChangedListener { text ->
-                val suggestions = LocationService.getSuggestions(text.toString())
-                val adapter = ArrayAdapter(
-                    requireContext(),
-                    android.R.layout.simple_dropdown_item_1line,
-                    suggestions
-                )
-                setAdapter(adapter)
+                viewModel.searchLocations(text.toString())
             }
         }
     }
@@ -96,12 +86,6 @@ class CreateTripFragment : Fragment() {
             val location = binding.etLocation.text.toString()
             val description = binding.etDescription.text.toString()
 
-            // Validate location
-            if (!LocationService.isValidLocation(location)) {
-                Snackbar.make(binding.root, "Please enter a valid location", Snackbar.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
             viewModel.createTrip(title, location, description)
         }
 
@@ -124,7 +108,6 @@ class CreateTripFragment : Fragment() {
                 is CreateTripState.Success -> {
                     binding.progressBar.visibility = View.GONE
                     Snackbar.make(binding.root, "Trip created successfully!", Snackbar.LENGTH_SHORT).show()
-                    // Notify previous back stack entry to refresh posts
                     val previousEntry = findNavController().previousBackStackEntry
                     previousEntry?.savedStateHandle?.set("post_created", true)
                     findNavController().navigateUp()
@@ -135,6 +118,15 @@ class CreateTripFragment : Fragment() {
                     Snackbar.make(binding.root, state.message, Snackbar.LENGTH_LONG).show()
                 }
             }
+        }
+
+        viewModel.locationSuggestions.observe(viewLifecycleOwner) { suggestions ->
+            val adapter = ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_dropdown_item_1line,
+                suggestions
+            )
+            (binding.etLocation as? AutoCompleteTextView)?.setAdapter(adapter)
         }
     }
 

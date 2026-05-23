@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import coil.load
 import com.example.travel_buddy.R
 import com.example.travel_buddy.databinding.FragmentTripDetailBinding
 import com.example.travel_buddy.di.ServiceLocator
@@ -82,8 +83,21 @@ class TripDetailFragment : Fragment() {
                     binding.tvTitle.text = post.title
                     binding.tvLocation.text = post.location
                     binding.tvDescription.text = post.description
-                    binding.tvUsername.text = post.authorId
+                    binding.tvUsername.text = if (post.authorUsername.isNotBlank()) post.authorUsername else post.authorId
                     binding.tvDate.text = DateFormat.format("MMMM dd, yyyy", Date(post.timestamp))
+                    binding.tvLikesCount.text = post.likesCount.toString()
+
+                    binding.ivHeaderImage.load(post.imageUrl) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_image_placeholder)
+                        error(R.drawable.ic_image_placeholder)
+                    }
+
+                    binding.ivUserAvatar.load(post.authorImageUrl) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_profile_placeholder)
+                        error(R.drawable.ic_profile_placeholder)
+                    }
 
                     // Update UI for Save Status
                     if (state.isSaved) {
