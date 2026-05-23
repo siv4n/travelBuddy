@@ -83,28 +83,18 @@ object ServiceLocator {
         DestinationRepositoryImpl(dataSource = destinationDataSource)
     }
 
-    // Location API Retrofit instance with separate base URL and API key interceptor
+    // Location API Retrofit instance with OpenMeteo base URL
     private val locationOkHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BODY
             })
-            .addInterceptor { chain ->
-                val originalRequest = chain.request()
-                val urlWithKey = originalRequest.url.newBuilder()
-                    .addQueryParameter("key", BuildConfig.GOOGLE_PLACES_API_KEY)
-                    .build()
-                val requestWithKey = originalRequest.newBuilder()
-                    .url(urlWithKey)
-                    .build()
-                chain.proceed(requestWithKey)
-            }
             .build()
     }
 
     private val locationRetrofit: Retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl("https://maps.googleapis.com/maps/api/")
+            .baseUrl("https://geocoding-api.open-meteo.com/")
             .addConverterFactory(GsonConverterFactory.create())
             .client(locationOkHttpClient)
             .build()

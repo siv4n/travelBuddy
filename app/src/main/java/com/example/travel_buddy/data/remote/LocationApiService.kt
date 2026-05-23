@@ -5,61 +5,32 @@ import retrofit2.http.Query
 import com.google.gson.annotations.SerializedName
 
 interface LocationApiService {
-    @GET("place/autocomplete/json")
+    @GET("v1/search")
     suspend fun getLocationSuggestions(
-        @Query("input") input: String,
-        @Query("sessionToken") sessionToken: String,
-        @Query("components") components: String = "country:*"
-    ): PlacesAutocompleteResponse
-
-    @GET("place/details/json")
-    suspend fun getPlaceDetails(
-        @Query("place_id") placeId: String,
-        @Query("sessionToken") sessionToken: String,
-        @Query("fields") fields: String = "formatted_address,geometry"
-    ): PlaceDetailsResponse
+        @Query("name") name: String,
+        @Query("count") count: Int = 10,
+        @Query("language") language: String = "en"
+    ): GeocodingResponse
 }
 
-data class PlacesAutocompleteResponse(
-    @SerializedName("predictions")
-    val predictions: List<PlacePrediction>,
-    @SerializedName("status")
-    val status: String
+data class GeocodingResponse(
+    @SerializedName("results")
+    val results: List<LocationResult>?
 )
 
-data class PlacePrediction(
-    @SerializedName("place_id")
-    val placeId: String,
-    @SerializedName("description")
-    val description: String,
-    @SerializedName("main_text")
-    val mainText: String,
-    @SerializedName("secondary_text")
-    val secondaryText: String?
-)
-
-data class PlaceDetailsResponse(
-    @SerializedName("result")
-    val result: PlaceResult?,
-    @SerializedName("status")
-    val status: String
-)
-
-data class PlaceResult(
-    @SerializedName("formatted_address")
-    val formattedAddress: String,
-    @SerializedName("geometry")
-    val geometry: PlaceGeometry?
-)
-
-data class PlaceGeometry(
-    @SerializedName("location")
-    val location: PlaceLocation
-)
-
-data class PlaceLocation(
-    @SerializedName("lat")
-    val lat: Double,
-    @SerializedName("lng")
-    val lng: Double
+data class LocationResult(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("name")
+    val name: String,
+    @SerializedName("latitude")
+    val latitude: Double,
+    @SerializedName("longitude")
+    val longitude: Double,
+    @SerializedName("country")
+    val country: String?,
+    @SerializedName("admin1")
+    val admin1: String?,
+    @SerializedName("admin2")
+    val admin2: String?
 )

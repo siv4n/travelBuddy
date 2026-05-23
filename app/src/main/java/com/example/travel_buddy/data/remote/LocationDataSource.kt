@@ -1,41 +1,39 @@
 package com.example.travel_buddy.data.remote
 
 import com.example.travel_buddy.core.common.AppResult
-import java.util.UUID
 
 class LocationDataSource(
     private val api: LocationApiService
 ) {
-    private val sessionToken = UUID.randomUUID().toString()
 
     suspend fun getLocationSuggestions(query: String): AppResult<List<String>> {
         return try {
             if (query.isBlank()) {
                 return AppResult.Success(emptyList())
             }
-            val response = api.getLocationSuggestions(query, sessionToken)
-            if (response.status == "OK") {
-                val suggestions = response.predictions.map { it.description }
+            val response = api.getLocationSuggestions(query)
+            if (!response.results.isNullOrEmpty()) {
+                val suggestions = response.results.map { location ->
+                    buildLocationString(location)
+                }
                 AppResult.Success(suggestions)
             } else {
-                AppResult.Error("Failed to fetch location suggestions: ${response.status}")
+                AppResult.Success(emptyList())
             }
         } catch (e: Exception) {
             AppResult.Error(e.message ?: "Failed to fetch location suggestions", e)
         }
     }
 
-    suspend fun getPlaceDetails(placeId: String): AppResult<Pair<Double, Double>> {
-        return try {
-            val response = api.getPlaceDetails(placeId, sessionToken)
-            if (response.status == "OK" && response.result?.geometry?.location != null) {
-                val location = response.result.geometry.location
-                AppResult.Success(Pair(location.lat, location.lng))
-            } else {
-                AppResult.Error("Failed to fetch place details: ${response.status}")
+    private fun buildLocationString(location: LocationResult): String {
+        return buildString {
+            append(location.name)
+            if (!location.admin1.isNullOrEmpty() && location.admin1 != location.name) {
+                append(", ${location.admin1}")
             }
-        } catch (e: Exception) {
-            AppResult.Error(e.message ?: "Failed to fetch place details", e)
+            if (!location.country.isNullOrEmpty()) {
+                append(", ${location.country}")
+            }
         }
     }
 }
