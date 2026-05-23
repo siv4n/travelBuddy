@@ -23,6 +23,8 @@ class DiscoveryViewModel(
     private val _uiState = MutableLiveData<DiscoveryState>(DiscoveryState.Idle)
     val uiState: LiveData<DiscoveryState> = _uiState
 
+    private var allPosts: List<Post> = emptyList()
+
     init {
         loadPosts()
     }
@@ -31,6 +33,25 @@ class DiscoveryViewModel(
         _uiState.value = DiscoveryState.Loading
         viewModelScope.launch {
             when (val result = repository.getAllPosts()) {
+                is AppResult.Success -> {
+                    allPosts = result.data
+                    _uiState.value = DiscoveryState.Success(result.data)
+                }
+                is AppResult.Error -> {
+                    _uiState.value = DiscoveryState.Error(result.message)
+                }
+            }
+        }
+    }
+
+    fun searchPosts(query: String) {
+        if (query.isBlank()) {
+            _uiState.value = DiscoveryState.Success(allPosts)
+            return
+        }
+        _uiState.value = DiscoveryState.Loading
+        viewModelScope.launch {
+            when (val result = repository.searchPosts(query)) {
                 is AppResult.Success -> {
                     _uiState.value = DiscoveryState.Success(result.data)
                 }

@@ -100,6 +100,10 @@ class EditPostFragment : Fragment() {
                 .setNegativeButton("Cancel", null)
                 .show()
         }
+
+        binding.toolbarEditPost.setNavigationOnClickListener {
+            findNavController().navigateUp()
+        }
     }
 
     private fun observeViewModel() {

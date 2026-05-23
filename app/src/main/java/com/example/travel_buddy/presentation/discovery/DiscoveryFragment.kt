@@ -13,6 +13,10 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.example.travel_buddy.R
 import com.example.travel_buddy.data.model.Post
 import com.example.travel_buddy.di.ServiceLocator
+import androidx.core.widget.addTextChangedListener
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 import com.example.travel_buddy.databinding.FragmentDiscoveryBinding
 
@@ -21,6 +25,7 @@ class DiscoveryFragment : Fragment() {
     private var _binding: FragmentDiscoveryBinding? = null
     private val binding get() = _binding!!
     private lateinit var adapter: TripCardAdapter
+    private var searchJob: Job? = null
 
     private val viewModel: DiscoveryViewModel by viewModels {
         DiscoveryViewModelFactory(ServiceLocator.postRepository)
@@ -36,10 +41,39 @@ class DiscoveryFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         setupRecyclerView()
         setupListeners()
         observeViewModel()
+        // Listen for navigation results (e.g., after creating/editing a post)
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("post_created")
+            ?.observe(viewLifecycleOwner) { created ->
+                if (created == true) {
+                    viewModel.loadPosts()
+                    // clear the flag
+                    findNavController().currentBackStackEntry?.savedStateHandle?.remove<Boolean>("post_created")
+                }
+            }
+
+        // Listen for save/unsave events coming back from detail screen
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_saved")
+            ?.observe(viewLifecycleOwner) { postId ->
+                viewModel.loadPosts()
+                findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_saved")
+            }
+
+        // Listen for post edit/delete events
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
+            ?.observe(viewLifecycleOwner) { postId ->
+                viewModel.loadPosts()
+                findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_edited")
+            }
+
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
+            ?.observe(viewLifecycleOwner) { postId ->
+                viewModel.loadPosts()
+                findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+            }
     }
 
     private fun observeViewModel() {
@@ -58,7 +92,7 @@ class DiscoveryFragment : Fragment() {
 
     private fun setupRecyclerView() {
         adapter = TripCardAdapter(
-            trips = emptyList(),
+            trips = mutableListOf(),
             onTripClicked = { post ->
                 val bundle = Bundle().apply {
                     putString("postId", post.postId)
@@ -66,11 +100,27 @@ class DiscoveryFragment : Fragment() {
                 findNavController().navigate(R.id.action_discoveryFragment_to_tripDetailFragment, bundle)
             },
             onLikeClicked = { post ->
+                val current = adapter.getPostById(post.postId) ?: post
+                val optimisticLiked = !current.isLiked
+                val optimisticCount = current.likesCount + if (optimisticLiked) 1 else -1
+                // apply optimistic update
+                adapter.setLikeState(post.postId, optimisticCount, optimisticLiked)
+
                 lifecycleScope.launch {
-                    val result = ServiceLocator.postRepository.toggleLike(post.postId)
-                    if (result is com.example.travel_buddy.core.common.AppResult.Success) {
-                        val msg = if (result.data) "Liked!" else "Unliked!"
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                    when (val result = ServiceLocator.postRepository.toggleLike(post.postId)) {
+                        is com.example.travel_buddy.core.common.AppResult.Success -> {
+                            val serverLiked = result.data
+                            // if server disagrees, correct UI
+                            if (serverLiked != optimisticLiked) {
+                                val correctedCount = current.likesCount + if (serverLiked) 1 else -1
+                                adapter.setLikeState(post.postId, correctedCount, serverLiked)
+                            }
+                        }
+                        is com.example.travel_buddy.core.common.AppResult.Error -> {
+                            // revert optimistic change
+                            adapter.setLikeState(post.postId, current.likesCount, current.isLiked)
+                            Snackbar.make(binding.root, result.message, Snackbar.LENGTH_LONG).show()
+                        }
                     }
                 }
             }
@@ -83,13 +133,19 @@ class DiscoveryFragment : Fragment() {
         binding.fabAddTrip.setOnClickListener {
             findNavController().navigate(R.id.action_discoveryFragment_to_createTripFragment)
         }
-        
-        binding.ivFilterBtn.setOnClickListener {
-            Toast.makeText(requireContext(), "Filter clicked", Toast.LENGTH_SHORT).show()
-        }
-        
+
         binding.ivProfileHead.setOnClickListener {
             findNavController().navigate(R.id.action_discoveryFragment_to_profileFragment)
+        }
+
+        // Debounced in-place search logic directly on DiscoveryFragment
+        binding.etSearch.addTextChangedListener { text ->
+            searchJob?.cancel()
+            searchJob = lifecycleScope.launch {
+                delay(500)
+                val query = text?.toString()?.trim().orEmpty()
+                viewModel.searchPosts(query)
+            }
         }
     }
 
