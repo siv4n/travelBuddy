@@ -146,4 +146,16 @@ class FirebasePostDataSource(
             AppResult.Error(e.message ?: "Failed to get user stats", e)
         }
     }
+
+    suspend fun getAllPosts(): AppResult<List<Post>> {
+        return try {
+            val snapshot = firestore.collection("posts")
+                .get().await()
+            val posts = snapshot.documents.mapNotNull { it.toObject(Post::class.java) }
+            // Sort by timestamp descending locally since Firestore requires compound indexes for ordering
+            AppResult.Success(posts.sortedByDescending { it.timestamp })
+        } catch (e: Exception) {
+            AppResult.Error(e.message ?: "Failed to get all posts", e)
+        }
+    }
 }

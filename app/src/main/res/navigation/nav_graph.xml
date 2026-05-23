@@ -9,8 +9,8 @@
         android:name="com.example.travel_buddy.presentation.auth.SplashFragment"
         android:label="Splash">
         <action
-            android:id="@+id/action_splashFragment_to_profileFragment"
-            app:destination="@id/profileFragment"
+            android:id="@+id/action_splashFragment_to_discoveryFragment"
+            app:destination="@id/discoveryFragment"
             app:popUpTo="@id/splashFragment"
             app:popUpToInclusive="true" />
     </fragment>
@@ -20,8 +20,8 @@
         android:name="com.example.travel_buddy.presentation.auth.RegisterFragment"
         android:label="Register">
         <action
-            android:id="@+id/action_registerFragment_to_profileFragment"
-            app:destination="@id/profileFragment"
+            android:id="@+id/action_registerFragment_to_discoveryFragment"
+            app:destination="@id/discoveryFragment"
             app:popUpTo="@id/registerFragment"
             app:popUpToInclusive="true" />
     </fragment>
@@ -53,6 +53,9 @@
         <action
             android:id="@+id/action_discoveryFragment_to_tripDetailFragment"
             app:destination="@id/tripDetailFragment" />
+        <action
+            android:id="@+id/action_discoveryFragment_to_profileFragment"
+            app:destination="@id/profileFragment" />
     </fragment>
 
     <fragment

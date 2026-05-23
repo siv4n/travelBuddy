@@ -4,59 +4,102 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#FFFFFF">
 
-    <!-- Top Search Bar Container -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/cvSearchBar"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="28dp"
-        app:cardElevation="4dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+    <!-- Header -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/clHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
         app:layout_constraintTop_toTopOf="parent">
 
+        <ImageView
+            android:id="@+id/ivLocationHead"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_location_outline"
+            app:tint="#0c9968"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Explore"
+            android:textColor="#0c9968"
+            android:textSize="20sp"
+            android:fontFamily="sans-serif-medium"
+            android:layout_marginStart="8dp"
+            app:layout_constraintStart_toEndOf="@id/ivLocationHead"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <ImageView
+            android:id="@+id/ivProfileHead"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_person_outline"
+            app:tint="#757575"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Search Section -->
+    <LinearLayout
+        android:id="@+id/llSearchContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/clHeader">
+
+        <!-- Search Bar -->
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center_vertical"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_search_pill"
             android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:paddingStart="16dp"
             android:paddingEnd="16dp">
 
             <ImageView
-                android:id="@+id/ivSearchIcon"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@drawable/ic_search"
-                app:tint="#757575" />
+                app:tint="#9E9E9E"/>
 
             <EditText
                 android:id="@+id/etSearch"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_marginStart="12dp"
-                android:layout_weight="1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
                 android:background="@null"
                 android:hint="Search destinations..."
-                android:imeOptions="actionSearch"
-                android:inputType="text"
-                android:maxLines="1"
                 android:textColor="#212121"
                 android:textColorHint="#9E9E9E"
-                android:textSize="16sp" />
-
-            <ImageView
-                android:id="@+id/ivFilterIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_marginStart="12dp"
-                android:src="@drawable/ic_filter"
-                app:tint="#757575" />
+                android:textSize="14sp"
+                android:singleLine="true"
+                android:imeOptions="actionSearch"/>
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+
+        <!-- Filter Button -->
+        <ImageView
+            android:id="@+id/ivFilterBtn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="12dp"
+            android:background="@drawable/bg_circle_outline"
+            android:src="@drawable/ic_filter"
+            android:padding="12dp"
+            app:tint="#757575" />
+    </LinearLayout>
 
     <!-- Grid Layout -->
     <androidx.recyclerview.widget.RecyclerView
@@ -71,7 +114,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/cvSearchBar"
+        app:layout_constraintTop_toBottomOf="@id/llSearchContainer"
         tools:layoutManager="androidx.recyclerview.widget.StaggeredGridLayoutManager"
         tools:listitem="@layout/item_trip_card"
         tools:spanCount="2" />

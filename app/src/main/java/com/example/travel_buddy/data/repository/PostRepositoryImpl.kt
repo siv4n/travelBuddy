@@ -48,4 +48,8 @@ class PostRepositoryImpl(
     override suspend fun getUserStats(userId: String): AppResult<Triple<Int, Int, Int>> = withContext(Dispatchers.IO) {
         dataSource.getUserStats(userId)
     }
+
+    override suspend fun getAllPosts(): AppResult<List<Post>> = withContext(Dispatchers.IO) {
+        dataSource.getAllPosts()
+    }
 }

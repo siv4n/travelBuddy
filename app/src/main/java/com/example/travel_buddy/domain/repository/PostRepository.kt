@@ -14,4 +14,5 @@ interface PostRepository {
     suspend fun getUserPosts(userId: String): AppResult<List<Post>>
     suspend fun getUserSavedPosts(userId: String): AppResult<List<Post>>
     suspend fun getUserStats(userId: String): AppResult<Triple<Int, Int, Int>>
+    suspend fun getAllPosts(): AppResult<List<Post>>
 }
