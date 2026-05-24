@@ -9,8 +9,8 @@
         android:name="com.example.travel_buddy.presentation.auth.SplashFragment"
         android:label="Splash">
         <action
-            android:id="@+id/action_splashFragment_to_profileFragment"
-            app:destination="@id/profileFragment"
+            android:id="@+id/action_splashFragment_to_discoveryFragment"
+            app:destination="@id/discoveryFragment"
             app:popUpTo="@id/splashFragment"
             app:popUpToInclusive="true" />
     </fragment>
@@ -20,8 +20,8 @@
         android:name="com.example.travel_buddy.presentation.auth.RegisterFragment"
         android:label="Register">
         <action
-            android:id="@+id/action_registerFragment_to_profileFragment"
-            app:destination="@id/profileFragment"
+            android:id="@+id/action_registerFragment_to_discoveryFragment"
+            app:destination="@id/discoveryFragment"
             app:popUpTo="@id/registerFragment"
             app:popUpToInclusive="true" />
     </fragment>
@@ -53,6 +53,12 @@
         <action
             android:id="@+id/action_discoveryFragment_to_tripDetailFragment"
             app:destination="@id/tripDetailFragment" />
+        <action
+            android:id="@+id/action_discoveryFragment_to_profileFragment"
+            app:destination="@id/profileFragment" />
+        <action
+            android:id="@+id/action_discoveryFragment_to_searchFragment"
+            app:destination="@id/searchFragment" />
     </fragment>
 
     <fragment
@@ -67,6 +73,32 @@
         <argument
             android:name="postId"
             app:argType="string" />
+        <action
+            android:id="@+id/action_tripDetailFragment_to_editPostFragment"
+            app:destination="@id/editPostFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/editPostFragment"
+        android:name="com.example.travel_buddy.presentation.post.EditPostFragment"
+        android:label="Edit Post">
+        <argument
+            android:name="postId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/destinationsFragment"
+        android:name="com.example.travel_buddy.presentation.destinations.DestinationsFragment"
+        android:label="Popular Destinations" />
+
+    <fragment
+        android:id="@+id/searchFragment"
+        android:name="com.example.travel_buddy.presentation.search.SearchFragment"
+        android:label="Search Trips">
+        <action
+            android:id="@+id/action_searchFragment_to_tripDetailFragment"
+            app:destination="@id/tripDetailFragment" />
     </fragment>
 
 </navigation>

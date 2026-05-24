@@ -29,7 +29,7 @@ class SplashFragment : Fragment(R.layout.fragment_splash) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 authViewModel.sessionState.collect { state ->
                     when (state) {
-                        SessionState.Authenticated -> findNavController().navigate(R.id.action_splashFragment_to_profileFragment)
+                        SessionState.Authenticated -> findNavController().navigate(R.id.action_splashFragment_to_discoveryFragment)
                         SessionState.Unauthenticated -> {
                             val intent = android.content.Intent(requireContext(), com.example.travel_buddy.LoginActivity::class.java)
                             startActivity(intent)

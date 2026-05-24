@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">travel-buddy</string>
+    <string name="loading_session">Checking session...</string>
+    <string name="login_title">Welcome Back</string>
+    <string name="login_subtitle">Sign in to continue</string>
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Password</string>
+    <string name="confirm_password_hint">Confirm password</string>
+    <string name="username_hint">Username</string>
+    <string name="login_button">Login</string>
+    <string name="go_to_register">Don\'t have an account? Register</string>
+    <string name="register_title">Create Account</string>
+    <string name="register_button">Register</string>
+    <string name="go_to_login">Already have an account? Login</string>
+    <string name="select_image">Select Image</string>
+    <string name="profile_title">My Profile</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="logout">Logout</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="profile_image">Profile image</string>
+    <string name="search_trips_hint">Search trips by title, location, or description...</string>
+    <string name="no_results_found">No results found</string>
 </resources>

@@ -29,6 +29,18 @@ class PostRepositoryImpl(
         }
     }
 
+    override suspend fun updatePost(postId: String, post: Post, imageUri: Uri?): AppResult<Unit> {
+        return withContext(Dispatchers.IO) {
+            dataSource.updatePost(postId, post, imageUri)
+        }
+    }
+
+    override suspend fun deletePost(postId: String): AppResult<Unit> {
+        return withContext(Dispatchers.IO) {
+            dataSource.deletePost(postId)
+        }
+    }
+
     override suspend fun getPostById(postId: String): AppResult<Post> = withContext(Dispatchers.IO) {
         dataSource.getPostById(postId)
     }
