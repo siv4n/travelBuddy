@@ -31,7 +31,7 @@ class TripDetailViewModel(
         loadData()
     }
 
-    private fun loadData() {
+    fun loadData() {
         _uiState.value = TripDetailState.Loading
         viewModelScope.launch {
             val postResult = repository.getPostById(postId)

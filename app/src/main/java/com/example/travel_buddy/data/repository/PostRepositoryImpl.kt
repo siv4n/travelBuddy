@@ -17,8 +17,24 @@ class PostRepositoryImpl(
         }
     }
 
+    override suspend fun updatePost(postId: String, post: Post, imageUri: Uri?): AppResult<Unit> {
+        return withContext(Dispatchers.IO) {
+            dataSource.updatePost(postId, post, imageUri)
+        }
+    }
+
+    override suspend fun deletePost(postId: String): AppResult<Unit> {
+        return withContext(Dispatchers.IO) {
+            dataSource.deletePost(postId)
+        }
+    }
+
     override suspend fun getPostById(postId: String): AppResult<Post> = withContext(Dispatchers.IO) {
         dataSource.getPostById(postId)
+    }
+
+    override suspend fun getAllPosts(forceRefresh: Boolean): AppResult<List<Post>> = withContext(Dispatchers.IO) {
+        dataSource.getAllPosts()
     }
 
     override suspend fun isPostLiked(postId: String): Boolean = withContext(Dispatchers.IO) {
@@ -49,7 +65,11 @@ class PostRepositoryImpl(
         dataSource.getUserStats(userId)
     }
 
-    override suspend fun getAllPosts(): AppResult<List<Post>> = withContext(Dispatchers.IO) {
-        dataSource.getAllPosts()
+    override suspend fun searchPosts(query: String): AppResult<List<Post>> = withContext(Dispatchers.IO) {
+        dataSource.searchPosts(query)
+    }
+
+    override suspend fun syncUserPosts(userId: String, username: String, imageUrl: String?): AppResult<Unit> = withContext(Dispatchers.IO) {
+        dataSource.syncUserPosts(userId, username, imageUrl)
     }
 }

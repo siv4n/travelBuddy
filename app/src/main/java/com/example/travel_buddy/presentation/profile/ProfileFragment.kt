@@ -10,6 +10,8 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.appcompat.widget.PopupMenu
+import androidx.core.content.ContextCompat
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import coil.load
@@ -36,15 +38,29 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentProfileBinding.bind(view)
 
+        binding.ivBack.setOnClickListener {
+            findNavController().navigateUp()
+        }
+
+        binding.ivSettings.setOnClickListener {
+            showSettingsMenu(it)
+        }
+
         setupRecyclerView()
         setupListeners()
         observeStates()
+        profileViewModel.loadProfile()
+        binding.tabLayout.getTabAt(1)?.select()
+    }
+
+    override fun onResume() {
+        super.onResume()
         profileViewModel.loadProfile()
     }
 
     private fun setupRecyclerView() {
         adapter = TripCardAdapter(
-            trips = emptyList(),
+            trips = mutableListOf(),
             onTripClicked = { post ->
                 val bundle = Bundle().apply {
                     putString("postId", post.postId)
@@ -52,11 +68,32 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                 findNavController().navigate(R.id.action_profileFragment_to_tripDetailFragment, bundle)
             },
             onLikeClicked = { post ->
+                val current = adapter.getPostById(post.postId) ?: post
+                val optimisticLiked = !current.isLiked
+                val optimisticCount = if (optimisticLiked) {
+                    current.likesCount + 1
+                } else {
+                    (current.likesCount - 1).coerceAtLeast(0)
+                }
+                adapter.setLikeState(post.postId, optimisticCount, optimisticLiked)
+
                 lifecycleScope.launch {
-                    val result = ServiceLocator.postRepository.toggleLike(post.postId)
-                    if (result is com.example.travel_buddy.core.common.AppResult.Success) {
-                        val msg = if (result.data) "Liked!" else "Unliked!"
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                    when (val result = ServiceLocator.postRepository.toggleLike(post.postId)) {
+                        is com.example.travel_buddy.core.common.AppResult.Success -> {
+                            val serverLiked = result.data
+                            if (serverLiked != optimisticLiked) {
+                                val correctedCount = if (serverLiked) {
+                                    current.likesCount + 1
+                                } else {
+                                    (current.likesCount - 1).coerceAtLeast(0)
+                                }
+                                adapter.setLikeState(post.postId, correctedCount, serverLiked)
+                            }
+                        }
+                        is com.example.travel_buddy.core.common.AppResult.Error -> {
+                            adapter.setLikeState(post.postId, current.likesCount, current.isLiked)
+                            Toast.makeText(requireContext(), result.message, Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             }
@@ -66,20 +103,12 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
     }
 
     private fun setupListeners() {
-        binding.buttonEditProfile.setOnClickListener {
-            findNavController().navigate(R.id.action_profileFragment_to_editProfileFragment)
-        }
-
-        binding.buttonLogoutText.setOnClickListener {
-            profileViewModel.logout()
-        }
-
         binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 if (tab?.position == 0) {
-                    profileViewModel.loadMyTrips()
-                } else {
                     profileViewModel.loadSavedTrips()
+                } else {
+                    profileViewModel.loadMyTrips()
                 }
             }
 
@@ -88,14 +117,91 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         })
     }
 
+    private fun showSettingsMenu(anchor: View) {
+        PopupMenu(requireContext(), anchor).apply {
+            menuInflater.inflate(R.menu.profile_settings_menu, menu)
+            setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    R.id.action_edit_profile -> {
+                        findNavController().navigate(R.id.action_profileFragment_to_editProfileFragment)
+                        true
+                    }
+                    R.id.action_logout -> {
+                        profileViewModel.logout()
+                        true
+                    }
+                    else -> false
+                }
+            }
+            setForceShowIcon(true)
+            try {
+                val field = javaClass.getDeclaredField("mPopup")
+                field.isAccessible = true
+                val helper = field.get(this)
+                helper.javaClass.getDeclaredMethod("setBackgroundDrawable", android.graphics.drawable.Drawable::class.java)
+                    ?.invoke(helper, ContextCompat.getDrawable(requireContext(), R.drawable.bg_profile_menu_popup))
+                helper.javaClass.getDeclaredMethod("setForceShowIcon", Boolean::class.javaPrimitiveType)
+                    ?.invoke(helper, true)
+            } catch (_: Exception) {
+                // Popup icons are optional if the internal helper is unavailable.
+            }
+            show()
+        }
+    }
+
     private fun observeStates() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Listen for saved-post events from details screen
+                findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_saved")
+                    ?.observe(viewLifecycleOwner) { postId ->
+                        // reload saved trips when a post save state changes
+                        profileViewModel.loadSavedTrips()
+                        findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_saved")
+                    }
+
+                // Listen for like/unlike events from details screen
+                findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Map<String, Any>>("post_liked")
+                    ?.observe(viewLifecycleOwner) { data ->
+                        val postId = data["postId"] as? String
+                        val isLiked = data["isLiked"] as? Boolean
+                        val likesCount = data["likesCount"] as? Int
+                        if (postId != null && isLiked != null && likesCount != null) {
+                            adapter.setLikeState(postId, likesCount, isLiked)
+                        }
+                        findNavController().currentBackStackEntry?.savedStateHandle?.remove<Map<String, Any>>("post_liked")
+                    }
+
+                // Listen for post edit events
+                findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
+                    ?.observe(viewLifecycleOwner) { postId ->
+                        // Reload current tab (My Trips or Saved)
+                        val currentTab = binding.tabLayout.selectedTabPosition
+                                if (currentTab == 0) {
+                                    profileViewModel.loadSavedTrips()
+                        } else {
+                                    profileViewModel.loadMyTrips()
+                        }
+                        findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_edited")
+                    }
+
+                // Listen for post delete events
+                findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
+                    ?.observe(viewLifecycleOwner) { postId ->
+                        if (postId != null) {
+                            adapter.removePost(postId)
+                            profileViewModel.loadProfile()
+                            findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+                        }
+                    }
                 launch {
                     profileViewModel.profileState.collect { state ->
                         binding.progressProfile.visibility = if (state is UiState.Loading) View.VISIBLE else View.GONE
                         when (state) {
-                            is UiState.Success -> bindProfile(state.data)
+                            is UiState.Success -> {
+                                bindProfile(state.data)
+                                updatePostsList()
+                            }
                             is UiState.Error -> Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
                             else -> Unit
                         }
@@ -119,7 +225,9 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                     profileViewModel.postsState.collect { state ->
                         binding.progressProfile.visibility = if (state is UiState.Loading) View.VISIBLE else View.GONE
                         when (state) {
-                            is UiState.Success -> adapter.updateData(state.data)
+                            is UiState.Success -> {
+                                updatePostsList()
+                            }
                             is UiState.Error -> Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                             else -> Unit
                         }
@@ -128,7 +236,6 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
                 launch {
                     profileViewModel.logoutState.collect { state ->
-                        binding.buttonLogoutText.isEnabled = state !is UiState.Loading
                         when (state) {
                             is UiState.Success -> {
                                 profileViewModel.clearLogoutState()
@@ -155,6 +262,31 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             crossfade(true)
             placeholder(R.drawable.ic_profile_placeholder)
             error(R.drawable.ic_profile_placeholder)
+            transformations(coil.transform.CircleCropTransformation())
+        }
+    }
+
+    private fun updatePostsList() {
+        val postsState = profileViewModel.postsState.value
+        if (postsState is UiState.Success) {
+            val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            val profileState = profileViewModel.profileState.value
+            val currentUserProfile = (profileState as? UiState.Success)?.data
+            val posts = if (currentUserId != null && currentUserProfile != null) {
+                postsState.data.map { post ->
+                    if (post.authorId == currentUserId) {
+                        post.copy(
+                            authorUsername = currentUserProfile.username,
+                            authorImageUrl = currentUserProfile.imageUrl
+                        )
+                    } else {
+                        post
+                    }
+                }
+            } else {
+                postsState.data
+            }
+            adapter.updateData(posts)
         }
     }
 

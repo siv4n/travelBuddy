@@ -5,8 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="4dp">
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -40,14 +40,14 @@
             android:layout_marginStart="8dp"
             android:layout_marginTop="8dp"
             android:background="@drawable/bg_dark_pill"
+            android:fontFamily="sans-serif-medium"
             android:paddingStart="8dp"
-            android:paddingEnd="8dp"
             android:paddingTop="3dp"
+            android:paddingEnd="8dp"
             android:paddingBottom="3dp"
             android:text="+1"
             android:textColor="#FFFFFF"
             android:textSize="12sp"
-            android:fontFamily="sans-serif-medium"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -61,6 +61,8 @@
             android:background="@drawable/circle_white_bg"
             android:padding="6dp"
             android:src="@drawable/ic_heart"
+            android:clickable="true"
+            android:focusable="true"
             app:tint="#757575"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
@@ -132,8 +134,8 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:background="@drawable/circle_background"
-                android:src="@drawable/ic_profile_placeholder"
-                android:scaleType="centerCrop"/>
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_profile_placeholder" />
 
             <TextView
                 android:id="@+id/tvUsername"

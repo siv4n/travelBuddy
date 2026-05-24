@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.travel_buddy.core.common.AppResult
 import com.example.travel_buddy.data.model.Post
 import com.example.travel_buddy.domain.repository.PostRepository
-import com.example.travel_buddy.domain.repository.LocationRepository
 import kotlinx.coroutines.launch
 
 sealed class EditPostState {
@@ -21,7 +20,6 @@ sealed class EditPostState {
 
 class EditPostViewModel(
     private val repository: PostRepository,
-    private val locationRepository: LocationRepository,
     private val postId: String
 ) : ViewModel() {
 
@@ -30,9 +28,6 @@ class EditPostViewModel(
 
     private val _postData = MutableLiveData<Post?>()
     val postData: LiveData<Post?> = _postData
-
-    private val _locationSuggestions = MutableLiveData<List<String>>(emptyList())
-    val locationSuggestions: LiveData<List<String>> = _locationSuggestions
 
     private var selectedImageUri: Uri? = null
     private var originalPost: Post? = null
@@ -57,25 +52,6 @@ class EditPostViewModel(
 
     fun setImageUri(uri: Uri) {
         selectedImageUri = uri
-    }
-
-    fun searchLocations(query: String) {
-        viewModelScope.launch {
-            if (query.isBlank()) {
-                _locationSuggestions.value = emptyList()
-                return@launch
-            }
-
-            when (val result = locationRepository.searchLocations(query)) {
-                is AppResult.Success<*> -> {
-                    @Suppress("UNCHECKED_CAST")
-                    _locationSuggestions.value = (result as AppResult.Success<List<String>>).data
-                }
-                is AppResult.Error -> {
-                    _locationSuggestions.value = emptyList()
-                }
-            }
-        }
     }
 
     fun updatePost(title: String, location: String, description: String) {
@@ -126,10 +102,9 @@ class EditPostViewModel(
 
 class EditPostViewModelFactory(
     private val repository: PostRepository,
-    private val locationRepository: LocationRepository,
     private val postId: String
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return EditPostViewModel(repository, locationRepository, postId) as T
+        return EditPostViewModel(repository, postId) as T
     }
 }

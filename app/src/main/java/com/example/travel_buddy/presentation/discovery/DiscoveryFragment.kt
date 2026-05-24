@@ -19,6 +19,8 @@ import kotlinx.coroutines.delay
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 import com.example.travel_buddy.databinding.FragmentDiscoveryBinding
+import coil.load
+import coil.transform.CircleCropTransformation
 
 class DiscoveryFragment : Fragment() {
 
@@ -28,7 +30,7 @@ class DiscoveryFragment : Fragment() {
     private var searchJob: Job? = null
 
     private val viewModel: DiscoveryViewModel by viewModels {
-        DiscoveryViewModelFactory(ServiceLocator.postRepository)
+        DiscoveryViewModelFactory(ServiceLocator.postRepository, ServiceLocator.authRepository)
     }
 
     override fun onCreateView(
@@ -62,6 +64,18 @@ class DiscoveryFragment : Fragment() {
                 findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_saved")
             }
 
+        // Listen for like/unlike events coming back from detail screen
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Map<String, Any>>("post_liked")
+            ?.observe(viewLifecycleOwner) { data ->
+                val postId = data["postId"] as? String
+                val isLiked = data["isLiked"] as? Boolean
+                val likesCount = data["likesCount"] as? Int
+                if (postId != null && isLiked != null && likesCount != null) {
+                    adapter.setLikeState(postId, likesCount, isLiked)
+                }
+                findNavController().currentBackStackEntry?.savedStateHandle?.remove<Map<String, Any>>("post_liked")
+            }
+
         // Listen for post edit/delete events
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
             ?.observe(viewLifecycleOwner) { postId ->
@@ -71,22 +85,58 @@ class DiscoveryFragment : Fragment() {
 
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
             ?.observe(viewLifecycleOwner) { postId ->
-                viewModel.loadPosts()
-                findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+                if (postId != null) {
+                    adapter.removePost(postId)
+                    viewModel.removePostFromCache(postId)
+                    findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+                }
             }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.loadPosts()
+        viewModel.loadUserProfile()
     }
 
     private fun observeViewModel() {
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is DiscoveryState.Success -> {
-                    adapter.updateData(state.posts)
+                    updatePostsList()
                 }
                 is DiscoveryState.Error -> {
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                 }
                 else -> Unit
             }
+        }
+
+        viewModel.userProfile.observe(viewLifecycleOwner) { profile ->
+            updatePostsList()
+        }
+    }
+
+    private fun updatePostsList() {
+        val state = viewModel.uiState.value
+        if (state is DiscoveryState.Success) {
+            val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            val currentUserProfile = viewModel.userProfile.value
+            val posts = if (currentUserId != null && currentUserProfile != null) {
+                state.posts.map { post ->
+                    if (post.authorId == currentUserId) {
+                        post.copy(
+                            authorUsername = currentUserProfile.username,
+                            authorImageUrl = currentUserProfile.imageUrl
+                        )
+                    } else {
+                        post
+                    }
+                }
+            } else {
+                state.posts
+            }
+            adapter.updateData(posts)
         }
     }
 
@@ -102,7 +152,11 @@ class DiscoveryFragment : Fragment() {
             onLikeClicked = { post ->
                 val current = adapter.getPostById(post.postId) ?: post
                 val optimisticLiked = !current.isLiked
-                val optimisticCount = current.likesCount + if (optimisticLiked) 1 else -1
+                val optimisticCount = if (optimisticLiked) {
+                    current.likesCount + 1
+                } else {
+                    (current.likesCount - 1).coerceAtLeast(0)
+                }
                 // apply optimistic update
                 adapter.setLikeState(post.postId, optimisticCount, optimisticLiked)
 
@@ -112,7 +166,11 @@ class DiscoveryFragment : Fragment() {
                             val serverLiked = result.data
                             // if server disagrees, correct UI
                             if (serverLiked != optimisticLiked) {
-                                val correctedCount = current.likesCount + if (serverLiked) 1 else -1
+                                val correctedCount = if (serverLiked) {
+                                    current.likesCount + 1
+                                } else {
+                                    (current.likesCount - 1).coerceAtLeast(0)
+                                }
                                 adapter.setLikeState(post.postId, correctedCount, serverLiked)
                             }
                         }

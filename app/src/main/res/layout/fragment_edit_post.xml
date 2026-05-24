@@ -116,8 +116,10 @@
                 android:layout_height="200dp"
                 android:layout_marginBottom="16dp"
                 android:scaleType="centerCrop"
+                android:visibility="gone"
                 android:contentDescription="@string/app_name"
-                android:background="@android:color/darker_gray" />
+                tools:src="@tools:sample/backgrounds/scenic"
+                tools:visibility="visible" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAddPhoto"
