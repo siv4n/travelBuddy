@@ -9,7 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.example.travel_buddy.R
 import com.example.travel_buddy.data.model.Post
 import com.example.travel_buddy.di.ServiceLocator
@@ -19,6 +19,8 @@ import kotlinx.coroutines.delay
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 import com.example.travel_buddy.databinding.FragmentDiscoveryBinding
+import coil.load
+import coil.transform.CircleCropTransformation
 
 class DiscoveryFragment : Fragment() {
 
@@ -28,7 +30,7 @@ class DiscoveryFragment : Fragment() {
     private var searchJob: Job? = null
 
     private val viewModel: DiscoveryViewModel by viewModels {
-        DiscoveryViewModelFactory(ServiceLocator.postRepository)
+        DiscoveryViewModelFactory(ServiceLocator.postRepository, ServiceLocator.authRepository)
     }
 
     override fun onCreateView(
@@ -83,22 +85,58 @@ class DiscoveryFragment : Fragment() {
 
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
             ?.observe(viewLifecycleOwner) { postId ->
-                viewModel.loadPosts()
-                findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+                if (postId != null) {
+                    adapter.removePost(postId)
+                    viewModel.removePostFromCache(postId)
+                    findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+                }
             }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.loadPosts()
+        viewModel.loadUserProfile()
     }
 
     private fun observeViewModel() {
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is DiscoveryState.Success -> {
-                    adapter.updateData(state.posts)
+                    updatePostsList()
                 }
                 is DiscoveryState.Error -> {
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                 }
                 else -> Unit
             }
+        }
+
+        viewModel.userProfile.observe(viewLifecycleOwner) { profile ->
+            updatePostsList()
+        }
+    }
+
+    private fun updatePostsList() {
+        val state = viewModel.uiState.value
+        if (state is DiscoveryState.Success) {
+            val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            val currentUserProfile = viewModel.userProfile.value
+            val posts = if (currentUserId != null && currentUserProfile != null) {
+                state.posts.map { post ->
+                    if (post.authorId == currentUserId) {
+                        post.copy(
+                            authorUsername = currentUserProfile.username,
+                            authorImageUrl = currentUserProfile.imageUrl
+                        )
+                    } else {
+                        post
+                    }
+                }
+            } else {
+                state.posts
+            }
+            adapter.updateData(posts)
         }
     }
 
@@ -145,7 +183,7 @@ class DiscoveryFragment : Fragment() {
                 }
             }
         )
-        binding.rvDiscoveryGrid.layoutManager = LinearLayoutManager(requireContext())
+        binding.rvDiscoveryGrid.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         binding.rvDiscoveryGrid.adapter = adapter
     }
 

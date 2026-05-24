@@ -76,22 +76,22 @@
                 <!-- Profile Image and Info -->
                 <ImageView
                     android:id="@+id/imageProfile"
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
                     android:background="@drawable/circle_white_bg"
                     android:scaleType="centerCrop"
-                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
                     android:id="@+id/textUsername"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
                     android:fontFamily="sans-serif-medium"
                     android:textColor="@android:color/white"
                     android:textSize="20sp"
-                    app:layout_constraintStart_toEndOf="@id/imageProfile"
+                    app:layout_constraintEnd_toStartOf="@id/imageProfile"
                     app:layout_constraintTop_toTopOf="@id/imageProfile"
                     tools:text="siv" />
 
@@ -99,10 +99,10 @@
                     android:id="@+id/textEmail"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
                     android:textColor="#E8F5E9"
                     android:textSize="14sp"
-                    app:layout_constraintStart_toEndOf="@id/imageProfile"
+                    app:layout_constraintEnd_toStartOf="@id/imageProfile"
                     app:layout_constraintTop_toBottomOf="@id/textUsername"
                     tools:text="siv@gmail.com" />
 
@@ -111,11 +111,11 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginTop="18dp"
+                    android:layout_marginTop="32dp"
                     android:paddingTop="6dp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/textEmail">
+                    app:layout_constraintTop_toBottomOf="@id/imageProfile">
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -227,7 +227,8 @@
         android:padding="8dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:listitem="@layout/item_trip_list"
-        tools:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+        tools:layoutManager="androidx.recyclerview.widget.StaggeredGridLayoutManager"
+        tools:spanCount="2" />
         
     <ProgressBar
         android:id="@+id/progressProfile"

@@ -68,4 +68,8 @@ class PostRepositoryImpl(
     override suspend fun searchPosts(query: String): AppResult<List<Post>> = withContext(Dispatchers.IO) {
         dataSource.searchPosts(query)
     }
+
+    override suspend fun syncUserPosts(userId: String, username: String, imageUrl: String?): AppResult<Unit> = withContext(Dispatchers.IO) {
+        dataSource.syncUserPosts(userId, username, imageUrl)
+    }
 }

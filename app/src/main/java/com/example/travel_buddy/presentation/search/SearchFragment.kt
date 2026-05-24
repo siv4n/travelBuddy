@@ -26,7 +26,7 @@ class SearchFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: SearchViewModel by viewModels {
-        SearchViewModelFactory(ServiceLocator.postRepository)
+        SearchViewModelFactory(ServiceLocator.postRepository, ServiceLocator.authRepository)
     }
 
     private lateinit var adapter: TripCardAdapter
@@ -58,6 +58,28 @@ class SearchFragment : Fragment() {
                     adapter.setLikeState(postId, likesCount, isLiked)
                 }
                 findNavController().currentBackStackEntry?.savedStateHandle?.remove<Map<String, Any>>("post_liked")
+            }
+
+        // Listen for post delete events
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
+            ?.observe(viewLifecycleOwner) { postId ->
+                if (postId != null) {
+                    adapter.removePost(postId)
+                    viewModel.removePostFromCache(postId)
+                    findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
+                }
+            }
+
+        // Listen for post edit events
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
+            ?.observe(viewLifecycleOwner) { postId ->
+                if (postId != null) {
+                    val query = binding.etSearchQuery.text.toString().trim()
+                    if (query.isNotEmpty()) {
+                        viewModel.searchPosts(query)
+                    }
+                    findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_edited")
+                }
             }
     }
 
@@ -134,37 +156,63 @@ class SearchFragment : Fragment() {
         binding.rvSearchResults.adapter = adapter
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.loadUserProfile()
+    }
+
     private fun observeViewModel() {
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
-            when (state) {
-                is SearchState.Idle -> {
-                    binding.progressBar.visibility = View.GONE
-                    binding.rvSearchResults.visibility = View.GONE
-                    binding.tvNoResults.visibility = View.GONE
-                }
-                is SearchState.Loading -> {
-                    binding.progressBar.visibility = View.VISIBLE
-                    binding.rvSearchResults.visibility = View.GONE
-                    binding.tvNoResults.visibility = View.GONE
-                }
-                is SearchState.Success -> {
-                    binding.progressBar.visibility = View.GONE
-                    if (state.posts.isEmpty()) {
-                        binding.rvSearchResults.visibility = View.GONE
-                        binding.tvNoResults.visibility = View.VISIBLE
-                    } else {
-                        binding.rvSearchResults.visibility = View.VISIBLE
-                        binding.tvNoResults.visibility = View.GONE
-                        adapter.updateData(state.posts)
+            updatePostsList()
+        }
+
+        viewModel.userProfile.observe(viewLifecycleOwner) { profile ->
+            updatePostsList()
+        }
+    }
+
+    private fun updatePostsList() {
+        val state = viewModel.uiState.value
+        if (state is SearchState.Success) {
+            binding.progressBar.visibility = View.GONE
+            if (state.posts.isEmpty()) {
+                binding.rvSearchResults.visibility = View.GONE
+                binding.tvNoResults.visibility = View.VISIBLE
+            } else {
+                binding.rvSearchResults.visibility = View.VISIBLE
+                binding.tvNoResults.visibility = View.GONE
+                
+                val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                val currentUserProfile = viewModel.userProfile.value
+                val posts = if (currentUserId != null && currentUserProfile != null) {
+                    state.posts.map { post ->
+                        if (post.authorId == currentUserId) {
+                            post.copy(
+                                authorUsername = currentUserProfile.username,
+                                authorImageUrl = currentUserProfile.imageUrl
+                            )
+                        } else {
+                            post
+                        }
                     }
+                } else {
+                    state.posts
                 }
-                is SearchState.Error -> {
-                    binding.progressBar.visibility = View.GONE
-                    binding.rvSearchResults.visibility = View.GONE
-                    binding.tvNoResults.visibility = View.VISIBLE
-                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
-                }
+                adapter.updateData(posts)
             }
+        } else if (state is SearchState.Idle) {
+            binding.progressBar.visibility = View.GONE
+            binding.rvSearchResults.visibility = View.GONE
+            binding.tvNoResults.visibility = View.GONE
+        } else if (state is SearchState.Loading) {
+            binding.progressBar.visibility = View.VISIBLE
+            binding.rvSearchResults.visibility = View.GONE
+            binding.tvNoResults.visibility = View.GONE
+        } else if (state is SearchState.Error) {
+            binding.progressBar.visibility = View.GONE
+            binding.rvSearchResults.visibility = View.GONE
+            binding.tvNoResults.visibility = View.VISIBLE
+            Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
         }
     }
 

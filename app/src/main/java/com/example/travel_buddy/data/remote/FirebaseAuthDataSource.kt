@@ -117,6 +117,22 @@ class FirebaseAuthDataSource(
                 .document(currentUser.uid)
                 .set(updates, SetOptions.merge())
                 .await()
+
+            // Also sync the new profile details to all of the user's posts in the posts collection!
+            try {
+                val postsSnapshot = firestore.collection("posts")
+                    .whereEqualTo("authorId", currentUser.uid)
+                    .get()
+                    .await()
+                for (doc in postsSnapshot.documents) {
+                    firestore.collection("posts").document(doc.id).update(
+                        "authorUsername", username,
+                        "authorImageUrl", updatedImageUrl
+                    ).await()
+                }
+            } catch (e: Exception) {
+                // Ignore failure to sync posts during profile update
+            }
         }.fold(
             onSuccess = { AppResult.Success(Unit) },
             onFailure = { AppResult.Error(it.message ?: "Failed to update profile", it) }

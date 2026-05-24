@@ -32,10 +32,20 @@ class TripCardAdapter(
                 crossfade(true)
                 placeholder(com.example.travel_buddy.R.drawable.ic_profile_placeholder)
                 error(com.example.travel_buddy.R.drawable.ic_profile_placeholder)
+                transformations(coil.transform.CircleCropTransformation())
             }
 
             // likes badge
             binding.tvBadge.text = trip.likesCount.toString()
+
+            // Update like button appearance
+            if (trip.isLiked) {
+                binding.ivLike.setImageResource(com.example.travel_buddy.R.drawable.ic_heart_filled)
+                binding.ivLike.setColorFilter(android.graphics.Color.RED)
+            } else {
+                binding.ivLike.setImageResource(com.example.travel_buddy.R.drawable.ic_heart)
+                binding.ivLike.setColorFilter(android.graphics.Color.parseColor("#757575"))
+            }
 
             // Set listeners
             binding.root.setOnClickListener { onTripClicked(trip) }
@@ -80,4 +90,12 @@ class TripCardAdapter(
     }
 
     fun getPostById(postId: String): Post? = trips.firstOrNull { it.postId == postId }
+
+    fun removePost(postId: String) {
+        val index = trips.indexOfFirst { it.postId == postId }
+        if (index >= 0) {
+            trips.removeAt(index)
+            notifyItemRemoved(index)
+        }
+    }
 }

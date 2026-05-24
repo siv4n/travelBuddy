@@ -13,7 +13,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import coil.load
 import com.example.travel_buddy.R
 import com.example.travel_buddy.data.model.Post
@@ -51,6 +51,11 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         observeStates()
         profileViewModel.loadProfile()
         binding.tabLayout.getTabAt(1)?.select()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        profileViewModel.loadProfile()
     }
 
     private fun setupRecyclerView() {
@@ -93,7 +98,7 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                 }
             }
         )
-        binding.rvProfileTrips.layoutManager = LinearLayoutManager(requireContext())
+        binding.rvProfileTrips.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         binding.rvProfileTrips.adapter = adapter
     }
 
@@ -101,9 +106,9 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 if (tab?.position == 0) {
-                    profileViewModel.loadMyTrips()
-                } else {
                     profileViewModel.loadSavedTrips()
+                } else {
+                    profileViewModel.loadMyTrips()
                 }
             }
 
@@ -172,10 +177,10 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                     ?.observe(viewLifecycleOwner) { postId ->
                         // Reload current tab (My Trips or Saved)
                         val currentTab = binding.tabLayout.selectedTabPosition
-                        if (currentTab == 0) {
-                            profileViewModel.loadMyTrips()
+                                if (currentTab == 0) {
+                                    profileViewModel.loadSavedTrips()
                         } else {
-                            profileViewModel.loadSavedTrips()
+                                    profileViewModel.loadMyTrips()
                         }
                         findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_edited")
                     }
@@ -183,20 +188,20 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                 // Listen for post delete events
                 findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
                     ?.observe(viewLifecycleOwner) { postId ->
-                        // Reload current tab (My Trips or Saved)
-                        val currentTab = binding.tabLayout.selectedTabPosition
-                        if (currentTab == 0) {
-                            profileViewModel.loadMyTrips()
-                        } else {
-                            profileViewModel.loadSavedTrips()
+                        if (postId != null) {
+                            adapter.removePost(postId)
+                            profileViewModel.loadProfile()
+                            findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
                         }
-                        findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
                     }
                 launch {
                     profileViewModel.profileState.collect { state ->
                         binding.progressProfile.visibility = if (state is UiState.Loading) View.VISIBLE else View.GONE
                         when (state) {
-                            is UiState.Success -> bindProfile(state.data)
+                            is UiState.Success -> {
+                                bindProfile(state.data)
+                                updatePostsList()
+                            }
                             is UiState.Error -> Toast.makeText(requireContext(), state.message, Toast.LENGTH_LONG).show()
                             else -> Unit
                         }
@@ -220,7 +225,9 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                     profileViewModel.postsState.collect { state ->
                         binding.progressProfile.visibility = if (state is UiState.Loading) View.VISIBLE else View.GONE
                         when (state) {
-                            is UiState.Success -> adapter.updateData(state.data)
+                            is UiState.Success -> {
+                                updatePostsList()
+                            }
                             is UiState.Error -> Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                             else -> Unit
                         }
@@ -255,6 +262,31 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             crossfade(true)
             placeholder(R.drawable.ic_profile_placeholder)
             error(R.drawable.ic_profile_placeholder)
+            transformations(coil.transform.CircleCropTransformation())
+        }
+    }
+
+    private fun updatePostsList() {
+        val postsState = profileViewModel.postsState.value
+        if (postsState is UiState.Success) {
+            val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            val profileState = profileViewModel.profileState.value
+            val currentUserProfile = (profileState as? UiState.Success)?.data
+            val posts = if (currentUserId != null && currentUserProfile != null) {
+                postsState.data.map { post ->
+                    if (post.authorId == currentUserId) {
+                        post.copy(
+                            authorUsername = currentUserProfile.username,
+                            authorImageUrl = currentUserProfile.imageUrl
+                        )
+                    } else {
+                        post
+                    }
+                }
+            } else {
+                postsState.data
+            }
+            adapter.updateData(posts)
         }
     }
 
