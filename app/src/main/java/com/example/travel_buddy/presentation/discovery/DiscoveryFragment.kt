@@ -47,24 +47,20 @@ class DiscoveryFragment : Fragment() {
         setupRecyclerView()
         setupListeners()
         observeViewModel()
-        // Listen for navigation results (e.g., after creating/editing a post)
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>("post_created")
             ?.observe(viewLifecycleOwner) { created ->
                 if (created == true) {
                     viewModel.loadPosts()
-                    // clear the flag
                     findNavController().currentBackStackEntry?.savedStateHandle?.remove<Boolean>("post_created")
                 }
             }
 
-        // Listen for save/unsave events coming back from detail screen
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_saved")
             ?.observe(viewLifecycleOwner) { postId ->
                 viewModel.loadPosts()
                 findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_saved")
             }
 
-        // Listen for like/unlike events coming back from detail screen
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Map<String, Any>>("post_liked")
             ?.observe(viewLifecycleOwner) { data ->
                 val postId = data["postId"] as? String
@@ -76,7 +72,6 @@ class DiscoveryFragment : Fragment() {
                 findNavController().currentBackStackEntry?.savedStateHandle?.remove<Map<String, Any>>("post_liked")
             }
 
-        // Listen for post edit/delete events
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
             ?.observe(viewLifecycleOwner) { postId ->
                 viewModel.loadPosts()
@@ -157,14 +152,12 @@ class DiscoveryFragment : Fragment() {
                 } else {
                     (current.likesCount - 1).coerceAtLeast(0)
                 }
-                // apply optimistic update
                 adapter.setLikeState(post.postId, optimisticCount, optimisticLiked)
 
                 lifecycleScope.launch {
                     when (val result = ServiceLocator.postRepository.toggleLike(post.postId)) {
                         is com.example.travel_buddy.core.common.AppResult.Success -> {
                             val serverLiked = result.data
-                            // if server disagrees, correct UI
                             if (serverLiked != optimisticLiked) {
                                 val correctedCount = if (serverLiked) {
                                     current.likesCount + 1
@@ -175,7 +168,6 @@ class DiscoveryFragment : Fragment() {
                             }
                         }
                         is com.example.travel_buddy.core.common.AppResult.Error -> {
-                            // revert optimistic change
                             adapter.setLikeState(post.postId, current.likesCount, current.isLiked)
                             Snackbar.make(binding.root, result.message, Snackbar.LENGTH_LONG).show()
                         }
@@ -196,7 +188,6 @@ class DiscoveryFragment : Fragment() {
             findNavController().navigate(R.id.action_discoveryFragment_to_profileFragment)
         }
 
-        // Debounced in-place search logic directly on DiscoveryFragment
         binding.etSearch.addTextChangedListener { text ->
             searchJob?.cancel()
             searchJob = lifecycleScope.launch {

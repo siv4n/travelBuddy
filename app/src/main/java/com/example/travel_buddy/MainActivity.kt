@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.example.travel_buddy.databinding.ActivityMainBinding
 import androidx.navigation.fragment.NavHostFragment
+import com.example.travel_buddy.di.ServiceLocator
 
 class MainActivity : AppCompatActivity() {
 
@@ -13,6 +14,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        ServiceLocator.initialize(this)
 
         val destination = intent.getStringExtra("destination")
         if (destination == "register") {

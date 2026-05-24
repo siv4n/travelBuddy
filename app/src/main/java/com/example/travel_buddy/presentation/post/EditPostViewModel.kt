@@ -111,7 +111,6 @@ class EditPostViewModel(
         viewModelScope.launch {
             when (val result = repository.deletePost(postId)) {
                 is AppResult.Success -> {
-                    // Mark as deleted (not just Success) so fragment can handle it differently
                     _uiState.value = EditPostState.Success
                 }
                 is AppResult.Error -> {
