@@ -118,7 +118,6 @@ class FirebaseAuthDataSource(
                 .set(updates, SetOptions.merge())
                 .await()
 
-            // Also sync the new profile details to all of the user's posts in the posts collection!
             try {
                 val postsSnapshot = firestore.collection("posts")
                     .whereEqualTo("authorId", currentUser.uid)
@@ -131,7 +130,6 @@ class FirebaseAuthDataSource(
                     ).await()
                 }
             } catch (e: Exception) {
-                // Ignore failure to sync posts during profile update
             }
         }.fold(
             onSuccess = { AppResult.Success(Unit) },

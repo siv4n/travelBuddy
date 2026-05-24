@@ -1,7 +1,8 @@
 package com.example.travel_buddy.di
 
 import android.content.Context
-import com.example.travel_buddy.BuildConfig
+import com.example.travel_buddy.data.local.AppDatabase
+import com.example.travel_buddy.data.local.dao.PostDao
 import com.example.travel_buddy.data.remote.DestinationApiService
 import com.example.travel_buddy.data.remote.DestinationDataSource
 import com.example.travel_buddy.data.remote.FirebaseAuthDataSource
@@ -30,6 +31,14 @@ object ServiceLocator {
     private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
     private val firebaseStorage: FirebaseStorage by lazy { FirebaseStorage.getInstance() }
 
+    private val database: AppDatabase by lazy {
+        AppDatabase.getDatabase(appContext ?: throw IllegalStateException("ServiceLocator not initialized"))
+    }
+
+    private val postDao: PostDao by lazy {
+        database.postDao()
+    }
+
     private val authDataSource: FirebaseAuthDataSource by lazy {
         FirebaseAuthDataSource(
             auth = firebaseAuth,
@@ -51,10 +60,12 @@ object ServiceLocator {
     }
 
     val postRepository: PostRepository by lazy {
-        PostRepositoryImpl(dataSource = postDataSource)
+        PostRepositoryImpl(
+            dataSource = postDataSource,
+            postDao = postDao
+        )
     }
 
-    // Retrofit client with OkHttp logging
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .addInterceptor(HttpLoggingInterceptor().apply {
@@ -83,7 +94,6 @@ object ServiceLocator {
         DestinationRepositoryImpl(dataSource = destinationDataSource)
     }
 
-    // Location API Retrofit instance with OpenMeteo base URL
     private val locationOkHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .addInterceptor(HttpLoggingInterceptor().apply {

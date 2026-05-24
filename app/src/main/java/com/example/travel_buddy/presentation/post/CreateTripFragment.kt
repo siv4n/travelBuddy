@@ -106,12 +106,10 @@ class CreateTripFragment : Fragment() {
             pickImages.launch("image/*")
         }
         
-        // Also allow clicking the preview area to select an image
         binding.ivTripPreview.setOnClickListener {
             pickImages.launch("image/*")
         }
 
-        // Request location permissions when location field is focused
         binding.etLocation.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus && !locationPermissionHelper.hasLocationPermission()) {
                 locationPermissionHelper.requestLocationPermissions()

@@ -12,7 +12,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <!-- Background Image -->
         <ImageView
             android:id="@+id/ivTripImage"
             android:layout_width="0dp"
@@ -23,7 +22,6 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:background="#BDBDBD" />
 
-        <!-- Gradient Overlay -->
         <View
             android:layout_width="0dp"
             android:layout_height="120dp"
@@ -32,7 +30,6 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <!-- Badge -->
         <TextView
             android:id="@+id/tvBadge"
             android:layout_width="wrap_content"
@@ -51,7 +48,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Heart Icon -->
         <ImageView
             android:id="@+id/ivLike"
             android:layout_width="32dp"
@@ -67,7 +63,6 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Location Info Container -->
         <LinearLayout
             android:id="@+id/llLocationInfo"
             android:layout_width="0dp"
@@ -97,7 +92,6 @@
                 tools:text="Paris, France" />
         </LinearLayout>
 
-        <!-- Title -->
         <TextView
             android:id="@+id/tvTitle"
             android:layout_width="0dp"
@@ -115,7 +109,6 @@
             app:layout_constraintStart_toStartOf="parent"
             tools:text="Eiffel Tower Adventure" />
 
-        <!-- User Info Container -->
         <LinearLayout
             android:id="@+id/llUserInfo"
             android:layout_width="0dp"

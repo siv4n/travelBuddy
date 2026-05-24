@@ -48,7 +48,6 @@ class SearchFragment : Fragment() {
         observeViewModel()
         setupBackButton()
 
-        // Listen for like/unlike events from detail screen
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Map<String, Any>>("post_liked")
             ?.observe(viewLifecycleOwner) { data ->
                 val postId = data["postId"] as? String
@@ -60,7 +59,6 @@ class SearchFragment : Fragment() {
                 findNavController().currentBackStackEntry?.savedStateHandle?.remove<Map<String, Any>>("post_liked")
             }
 
-        // Listen for post delete events
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
             ?.observe(viewLifecycleOwner) { postId ->
                 if (postId != null) {
@@ -70,7 +68,6 @@ class SearchFragment : Fragment() {
                 }
             }
 
-        // Listen for post edit events
         findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
             ?.observe(viewLifecycleOwner) { postId ->
                 if (postId != null) {
@@ -90,11 +87,10 @@ class SearchFragment : Fragment() {
     }
 
     private fun setupSearchBar() {
-        // Debounce search input to avoid too many queries
         binding.etSearchQuery.addTextChangedListener { text ->
             searchJob?.cancel()
             searchJob = MainScope().launch {
-                delay(500) // 500ms delay
+                delay(500)
                 val query = text.toString().trim()
                 if (query.isNotEmpty()) {
                     viewModel.searchPosts(query)
@@ -104,7 +100,6 @@ class SearchFragment : Fragment() {
             }
         }
 
-        // Focus on search input automatically
         binding.etSearchQuery.requestFocus()
     }
 
@@ -125,14 +120,12 @@ class SearchFragment : Fragment() {
                 } else {
                     (current.likesCount - 1).coerceAtLeast(0)
                 }
-                // apply optimistic update
                 adapter.setLikeState(post.postId, optimisticCount, optimisticLiked)
 
                 lifecycleScope.launch {
                     when (val result = ServiceLocator.postRepository.toggleLike(post.postId)) {
                         is com.example.travel_buddy.core.common.AppResult.Success -> {
                             val serverLiked = result.data
-                            // if server disagrees, correct UI
                             if (serverLiked != optimisticLiked) {
                                 val correctedCount = if (serverLiked) {
                                     current.likesCount + 1
@@ -143,7 +136,6 @@ class SearchFragment : Fragment() {
                             }
                         }
                         is com.example.travel_buddy.core.common.AppResult.Error -> {
-                            // revert optimistic like on error
                             adapter.setLikeState(post.postId, current.likesCount, !optimisticLiked)
                             Toast.makeText(requireContext(), "Failed to update like", Toast.LENGTH_SHORT).show()
                         }

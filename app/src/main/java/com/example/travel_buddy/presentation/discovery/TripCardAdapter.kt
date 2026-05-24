@@ -21,7 +21,6 @@ class TripCardAdapter(
             binding.tvLocation.text = trip.location
             binding.tvUsername.text = if (trip.authorUsername.isNotBlank()) trip.authorUsername else trip.authorId
 
-            // load images with coil, with placeholders
             binding.ivTripImage.load(trip.imageUrl) {
                 crossfade(true)
                 placeholder(com.example.travel_buddy.R.drawable.ic_image_placeholder)
@@ -35,10 +34,8 @@ class TripCardAdapter(
                 transformations(coil.transform.CircleCropTransformation())
             }
 
-            // likes badge
             binding.tvBadge.text = trip.likesCount.toString()
 
-            // Update like button appearance
             if (trip.isLiked) {
                 binding.ivLike.setImageResource(com.example.travel_buddy.R.drawable.ic_heart_filled)
                 binding.ivLike.setColorFilter(android.graphics.Color.RED)
@@ -47,7 +44,6 @@ class TripCardAdapter(
                 binding.ivLike.setColorFilter(android.graphics.Color.parseColor("#757575"))
             }
 
-            // Set listeners
             binding.root.setOnClickListener { onTripClicked(trip) }
             binding.ivLike.setOnClickListener { onLikeClicked(trip) }
         }

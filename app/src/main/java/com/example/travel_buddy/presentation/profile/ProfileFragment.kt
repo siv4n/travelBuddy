@@ -143,7 +143,6 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                 helper.javaClass.getDeclaredMethod("setForceShowIcon", Boolean::class.javaPrimitiveType)
                     ?.invoke(helper, true)
             } catch (_: Exception) {
-                // Popup icons are optional if the internal helper is unavailable.
             }
             show()
         }
@@ -152,15 +151,12 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
     private fun observeStates() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // Listen for saved-post events from details screen
                 findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_saved")
                     ?.observe(viewLifecycleOwner) { postId ->
-                        // reload saved trips when a post save state changes
                         profileViewModel.loadSavedTrips()
                         findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_saved")
                     }
 
-                // Listen for like/unlike events from details screen
                 findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Map<String, Any>>("post_liked")
                     ?.observe(viewLifecycleOwner) { data ->
                         val postId = data["postId"] as? String
@@ -172,10 +168,8 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                         findNavController().currentBackStackEntry?.savedStateHandle?.remove<Map<String, Any>>("post_liked")
                     }
 
-                // Listen for post edit events
                 findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
                     ?.observe(viewLifecycleOwner) { postId ->
-                        // Reload current tab (My Trips or Saved)
                         val currentTab = binding.tabLayout.selectedTabPosition
                                 if (currentTab == 0) {
                                     profileViewModel.loadSavedTrips()
@@ -185,7 +179,6 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
                         findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_edited")
                     }
 
-                // Listen for post delete events
                 findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
                     ?.observe(viewLifecycleOwner) { postId ->
                         if (postId != null) {

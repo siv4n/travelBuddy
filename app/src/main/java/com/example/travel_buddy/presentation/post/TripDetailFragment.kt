@@ -93,7 +93,6 @@ class TripDetailFragment : Fragment() {
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is TripDetailState.Loading -> {
-                    // Could show loader
                 }
                 is TripDetailState.Success -> {
                     val post = state.post
@@ -112,7 +111,6 @@ class TripDetailFragment : Fragment() {
                         if (post.imageUrl.isNotEmpty()) listOf(post.imageUrl) else emptyList()
                     }
 
-                    // Load primary image in header
                     binding.ivHeaderImage.load(urls.firstOrNull() ?: R.drawable.ic_image_placeholder) {
                         crossfade(true)
                         placeholder(R.drawable.ic_image_placeholder)
@@ -155,7 +153,6 @@ class TripDetailFragment : Fragment() {
                         transformations(coil.transform.CircleCropTransformation())
                     }
 
-                    // Update UI for Like Status
                     if (state.isLiked) {
                         binding.ivHeart.setImageResource(R.drawable.ic_heart_filled)
                         binding.ivHeart.setColorFilter(android.graphics.Color.RED)
@@ -164,49 +161,41 @@ class TripDetailFragment : Fragment() {
                         binding.ivHeart.setColorFilter(android.graphics.Color.parseColor("#757575"))
                     }
 
-                    // Update UI for Save Status
                     if (state.isSaved) {
                         binding.ivSave.setImageResource(R.drawable.ic_bookmark_filled)
                     } else {
                         binding.ivSave.setImageResource(R.drawable.ic_bookmark_border)
                     }
 
-                    // Notify previous fragment (if any) that saved state changed
                     val prev = findNavController().previousBackStackEntry
                     if (prev != null && lastSavedState != null && lastSavedState != state.isSaved) {
                         prev.savedStateHandle.set("post_saved", post.postId)
                     }
                     lastSavedState = state.isSaved
 
-                    // Notify previous fragment (if any) that like state changed
                     if (prev != null && lastLikedState != null && lastLikedState != state.isLiked) {
                         prev.savedStateHandle.set("post_liked", mapOf("postId" to post.postId, "isLiked" to state.isLiked, "likesCount" to post.likesCount))
                     }
                     lastLikedState = state.isLiked
 
-                    // Listen for post edit/delete from EditPostFragment
                     findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_edited")
                         ?.observe(viewLifecycleOwner) { editedPostId ->
                             if (editedPostId == postId) {
-                                // Reload the post to show updated content
                                 viewModel.loadData()
                             }
-                            // Pass the edit event up to parent fragment (e.g., DiscoveryFragment)
-                            val prev = findNavController().previousBackStackEntry
-                            prev?.savedStateHandle?.set("post_edited", editedPostId)
+                            val prevEntry = findNavController().previousBackStackEntry
+                            prevEntry?.savedStateHandle?.set("post_edited", editedPostId)
                             findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_edited")
                         }
 
                     findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<String>("post_deleted")
                         ?.observe(viewLifecycleOwner) { deletedPostId ->
                             if (deletedPostId != null) {
-                                // Pass the delete event up to parent fragment FIRST
-                                val prev = findNavController().previousBackStackEntry
-                                prev?.savedStateHandle?.set("post_deleted", deletedPostId)
+                                val prevEntry = findNavController().previousBackStackEntry
+                                prevEntry?.savedStateHandle?.set("post_deleted", deletedPostId)
                                 findNavController().currentBackStackEntry?.savedStateHandle?.remove<String>("post_deleted")
                                 
                                 if (deletedPostId == postId) {
-                                    // Navigate up since the post no longer exists
                                     findNavController().navigateUp()
                                 }
                             }

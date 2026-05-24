@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
     alias(libs.plugins.kotlin.android)
+    id("kotlin-kapt")
 }
 
 val localProperties = Properties()
@@ -68,25 +69,21 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
-    // ViewBinding & UI Components
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation(libs.io.coil.kt.coil)
     implementation(libs.org.jetbrains.kotlinx.coroutines.play.services)
 
-    // Room Database - commented for now due to Kotlin version compatibility
-    // implementation(libs.room.runtime)
-    // kapt(libs.room.compiler)
-    // implementation(libs.room.ktx)
+    implementation(libs.room.runtime)
+    kapt(libs.room.compiler)
+    implementation(libs.room.ktx)
 
-    // Retrofit
     implementation(libs.retrofit)
     implementation(libs.retrofit.json)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
 
-    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
@@ -101,3 +98,4 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+

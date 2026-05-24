@@ -2,20 +2,16 @@
 <resources>
 
     <style name="Theme.Travelbuddy" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
         <item name="colorPrimary">#0c9968</item>
         <item name="colorOnPrimary">@android:color/white</item>
         <item name="colorPrimaryContainer">#d7f5eb</item>
         <item name="colorOnPrimaryContainer">#0c9968</item>
-        <!-- Secondary brand color. -->
         <item name="colorSecondary">#0c9968</item>
         <item name="colorOnSecondary">@android:color/white</item>
         <item name="colorTertiary">#d7f5eb</item>
         <item name="colorOnTertiary">#0c9968</item>
-        <!-- Outlines & Borders -->
         <item name="colorOutline">#757575</item>
         <item name="colorOutlineVariant">#E0E0E0</item>
-        <!-- Active selection and cursor controls -->
         <item name="colorControlActivated">#0c9968</item>
         <item name="colorControlHighlight">#d7f5eb</item>
     </style>

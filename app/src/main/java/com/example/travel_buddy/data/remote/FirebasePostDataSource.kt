@@ -19,7 +19,6 @@ class FirebasePostDataSource(
             val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
             val postId = UUID.randomUUID().toString()
             
-            // Upload all images to Firebase Storage
             val downloadUrls = mutableListOf<String>()
             for (index in imageUris.indices) {
                 val uri = imageUris[index]
@@ -35,7 +34,6 @@ class FirebasePostDataSource(
             
             val primaryImageUrl = downloadUrls.firstOrNull() ?: ""
             
-            // Fetch current user's profile info to store in the post document
             var authorUsername = ""
             var authorImageUrl: String? = null
             try {
@@ -45,7 +43,6 @@ class FirebasePostDataSource(
                     authorImageUrl = userDoc.getString("imageUrl")
                 }
             } catch (e: Exception) {
-                // Fallback
             }
             if (authorUsername.isBlank()) {
                 authorUsername = auth.currentUser?.displayName ?: auth.currentUser?.email?.substringBefore("@").orEmpty()
@@ -54,7 +51,6 @@ class FirebasePostDataSource(
                 authorImageUrl = auth.currentUser?.photoUrl?.toString()
             }
 
-            // Create post document in Firestore
             val finalPost = post.copy(
                 postId = postId,
                 authorId = uid,
@@ -175,7 +171,6 @@ class FirebasePostDataSource(
             val postsCount = firestore.collection("posts")
                 .whereEqualTo("authorId", userId).get().await().size()
             
-            // Get all liked documents
             val likesDocs = firestore.collection("likes")
                 .whereEqualTo("userId", userId).get().await().documents
             var validLikesCount = 0
@@ -186,13 +181,11 @@ class FirebasePostDataSource(
                     if (postExists) {
                         validLikesCount++
                     } else {
-                        // Clean up the orphaned like document
                         firestore.collection("likes").document(doc.id).delete().await()
                     }
                 }
             }
 
-            // Get all saved documents
             val savesDocs = firestore.collection("saves")
                 .whereEqualTo("userId", userId).get().await().documents
             var validSavesCount = 0
@@ -203,7 +196,6 @@ class FirebasePostDataSource(
                     if (postExists) {
                         validSavesCount++
                     } else {
-                        // Clean up the orphaned save document
                         firestore.collection("saves").document(doc.id).delete().await()
                     }
                 }
@@ -221,7 +213,6 @@ class FirebasePostDataSource(
                 .get().await()
             val posts = snapshot.documents.mapNotNull { it.toObject(Post::class.java) }
 
-            // Enrich posts with author profile and likes/save state
             val enriched = posts.map { enrichPost(it) }
 
             AppResult.Success(enriched.sortedByDescending { it.timestamp })
@@ -234,34 +225,28 @@ class FirebasePostDataSource(
         return try {
             val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
 
-            // Check if user is the author
             val existingDoc = firestore.collection("posts").document(postId).get().await()
             val existingPost = existingDoc.toObject(Post::class.java)
             if (existingPost?.authorId != uid) {
                 return AppResult.Error("You can only edit your own posts")
             }
 
-            // Handle image update if provided
             val (primaryUrl, allUrls) = if (imageUris != null) {
-                // First delete old images from storage
                 val existingUrls = existingPost.imageUrls
                 if (existingUrls.isNotEmpty()) {
                     for (index in existingUrls.indices) {
                         try {
                             storage.reference.child("post_images/${postId}_${index}.jpg").delete().await()
                         } catch (e: Exception) {
-                            // ignore
                         }
                     }
                 } else {
                     try {
                         storage.reference.child("post_images/$postId.jpg").delete().await()
                     } catch (e: Exception) {
-                        // ignore
                     }
                 }
 
-                // Upload new images
                 val downloadUrls = mutableListOf<String>()
                 for (index in imageUris.indices) {
                     val uri = imageUris[index]
@@ -279,7 +264,6 @@ class FirebasePostDataSource(
                 Pair(existingPost.imageUrl, existingPost.imageUrls)
             }
 
-            // Fetch current user's profile info to store in the post document
             var authorUsername = ""
             var authorImageUrl: String? = null
             try {
@@ -289,7 +273,6 @@ class FirebasePostDataSource(
                     authorImageUrl = userDoc.getString("imageUrl")
                 }
             } catch (e: Exception) {
-                // Fallback
             }
             if (authorUsername.isBlank()) {
                 authorUsername = auth.currentUser?.displayName ?: auth.currentUser?.email?.substringBefore("@").orEmpty()
@@ -319,14 +302,12 @@ class FirebasePostDataSource(
         return try {
             val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
 
-            // Check if user is the author
             val doc = firestore.collection("posts").document(postId).get().await()
             val post = doc.toObject(Post::class.java)
             if (post?.authorId != uid) {
                 return AppResult.Error("You can only delete your own posts")
             }
 
-            // Delete the post images from storage
             try {
                 val urls = post?.imageUrls ?: emptyList()
                 if (urls.isNotEmpty()) {
@@ -335,26 +316,20 @@ class FirebasePostDataSource(
                             val imageRef = storage.reference.child("post_images/${postId}_${index}.jpg")
                             imageRef.delete().await()
                         } catch (e: Exception) {
-                            // ignore
                         }
                     }
                 } else {
-                    // Fallback for single image posts
                     try {
                         val imageRef = storage.reference.child("post_images/$postId.jpg")
                         imageRef.delete().await()
                     } catch (e: Exception) {
-                        // ignore
                     }
                 }
             } catch (e: Exception) {
-                // Image might not exist, continue with deletion
             }
 
-            // Delete the post document
             firestore.collection("posts").document(postId).delete().await()
 
-            // Clean up likes and saves
             val likesSnapshot = firestore.collection("likes")
                 .whereEqualTo("postId", postId).get().await()
             likesSnapshot.documents.forEach {
@@ -383,14 +358,12 @@ class FirebasePostDataSource(
             val snapshot = firestore.collection("posts").get().await()
             val posts = snapshot.documents.mapNotNull { it.toObject(Post::class.java) }
             
-            // Filter posts by title, location, or description containing the query
             val filtered = posts.filter { post ->
                 post.title.lowercase().contains(lowerQuery) ||
                 post.location.lowercase().contains(lowerQuery) ||
                 post.description.lowercase().contains(lowerQuery)
             }
             
-            // Enrich filtered posts with author profile and likes/save state (same as getAllPosts)
             val enriched = filtered.map { enrichPost(it) }
             
             AppResult.Success(enriched.sortedByDescending { it.timestamp })
@@ -411,14 +384,12 @@ class FirebasePostDataSource(
                 authorImageUrl = userDoc.getString("imageUrl") ?: post.authorImageUrl
             }
         } catch (e: Exception) {
-            // Safe to ignore or log
         }
 
         var likesCount = post.likesCount
         try {
             likesCount = firestore.collection("likes").whereEqualTo("postId", post.postId).get().await().size()
         } catch (e: Exception) {
-            // Safe to ignore or log
         }
 
         var isLiked = post.isLiked
@@ -427,7 +398,6 @@ class FirebasePostDataSource(
                 isLiked = firestore.collection("likes").document("${uid}_${post.postId}").get().await().exists()
             }
         } catch (e: Exception) {
-            // Safe to ignore or log
         }
 
         var isSaved = post.isSaved
@@ -436,7 +406,6 @@ class FirebasePostDataSource(
                 isSaved = firestore.collection("saves").document("${uid}_${post.postId}").get().await().exists()
             }
         } catch (e: Exception) {
-            // Safe to ignore or log
         }
 
         return post.copy(
