@@ -11,14 +11,30 @@ import kotlinx.coroutines.withContext
 class PostRepositoryImpl(
     private val dataSource: FirebasePostDataSource
 ) : PostRepository {
-    override suspend fun createPost(post: Post, imageUri: Uri): AppResult<Unit> {
+    override suspend fun createPost(post: Post, imageUris: List<Uri>): AppResult<Unit> {
         return withContext(Dispatchers.IO) {
-            dataSource.createPost(post, imageUri)
+            dataSource.createPost(post, imageUris)
+        }
+    }
+
+    override suspend fun updatePost(postId: String, post: Post, imageUris: List<Uri>?): AppResult<Unit> {
+        return withContext(Dispatchers.IO) {
+            dataSource.updatePost(postId, post, imageUris)
+        }
+    }
+
+    override suspend fun deletePost(postId: String): AppResult<Unit> {
+        return withContext(Dispatchers.IO) {
+            dataSource.deletePost(postId)
         }
     }
 
     override suspend fun getPostById(postId: String): AppResult<Post> = withContext(Dispatchers.IO) {
         dataSource.getPostById(postId)
+    }
+
+    override suspend fun getAllPosts(forceRefresh: Boolean): AppResult<List<Post>> = withContext(Dispatchers.IO) {
+        dataSource.getAllPosts()
     }
 
     override suspend fun isPostLiked(postId: String): Boolean = withContext(Dispatchers.IO) {
@@ -47,5 +63,13 @@ class PostRepositoryImpl(
 
     override suspend fun getUserStats(userId: String): AppResult<Triple<Int, Int, Int>> = withContext(Dispatchers.IO) {
         dataSource.getUserStats(userId)
+    }
+
+    override suspend fun searchPosts(query: String): AppResult<List<Post>> = withContext(Dispatchers.IO) {
+        dataSource.searchPosts(query)
+    }
+
+    override suspend fun syncUserPosts(userId: String, username: String, imageUrl: String?): AppResult<Unit> = withContext(Dispatchers.IO) {
+        dataSource.syncUserPosts(userId, username, imageUrl)
     }
 }
