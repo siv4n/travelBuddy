@@ -5,6 +5,7 @@ import android.text.format.DateFormat
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -107,22 +108,44 @@ class TripDetailFragment : Fragment() {
                     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
                     binding.ivEdit.isVisible = currentUserId != null && post.authorId == currentUserId
 
-                    binding.ivHeaderImage.load(post.imageUrl) {
+                    val urls = post.imageUrls.ifEmpty {
+                        if (post.imageUrl.isNotEmpty()) listOf(post.imageUrl) else emptyList()
+                    }
+
+                    // Load primary image in header
+                    binding.ivHeaderImage.load(urls.firstOrNull() ?: R.drawable.ic_image_placeholder) {
                         crossfade(true)
                         placeholder(R.drawable.ic_image_placeholder)
                         error(R.drawable.ic_image_placeholder)
                     }
 
-                    binding.ivThumbnail1.load(post.imageUrl) {
-                        crossfade(true)
-                        placeholder(R.drawable.ic_image_placeholder)
-                        error(R.drawable.ic_image_placeholder)
+                    binding.llThumbnailContainer.removeAllViews()
+                    if (urls.isNotEmpty()) {
+                        binding.llThumbnailContainer.visibility = View.VISIBLE
+                        for (i in 0 until urls.size) {
+                            val url = urls[i]
+                            val isFirst = (i == 0)
+                            val card = createThumbnailCard(
+                                sizeDp = 48,
+                                isFirst = isFirst,
+                                imageUrl = url
+                            ) {
+                                binding.ivHeaderImage.load(url) {
+                                    crossfade(true)
+                                }
+                            }
+                            binding.llThumbnailContainer.addView(card)
+                        }
+                    } else {
+                        binding.llThumbnailContainer.visibility = View.GONE
                     }
 
-                    binding.ivThumbnail2.load(post.imageUrl) {
-                        crossfade(true)
-                        placeholder(R.drawable.ic_image_placeholder)
-                        error(R.drawable.ic_image_placeholder)
+                    binding.ivHeaderImage.setOnClickListener {
+                        if (urls.isNotEmpty()) {
+                            binding.ivHeaderImage.load(urls[0]) {
+                                crossfade(true)
+                            }
+                        }
                     }
 
                     binding.ivUserAvatar.load(post.authorImageUrl) {
@@ -194,6 +217,55 @@ class TripDetailFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private fun createThumbnailCard(
+        sizeDp: Int,
+        isFirst: Boolean,
+        imageUrl: String? = null,
+        imageUri: android.net.Uri? = null,
+        onClick: () -> Unit
+    ): androidx.cardview.widget.CardView {
+        val context = requireContext()
+        val density = resources.displayMetrics.density
+        
+        val cardView = androidx.cardview.widget.CardView(context).apply {
+            val sizePx = (sizeDp * density).toInt()
+            val marginStartPx = if (isFirst) 0 else (8 * density).toInt()
+            
+            val lp = android.widget.LinearLayout.LayoutParams(sizePx, sizePx).apply {
+                marginStart = marginStartPx
+            }
+            layoutParams = lp
+            radius = (8 * density)
+            cardElevation = (2 * density)
+            preventCornerOverlap = false
+            setCardBackgroundColor(android.graphics.Color.WHITE)
+        }
+
+        val imageView = ImageView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            val paddingPx = (2 * density).toInt()
+            setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+            
+            if (imageUrl != null) {
+                load(imageUrl) {
+                    crossfade(true)
+                    placeholder(R.drawable.ic_image_placeholder)
+                    error(R.drawable.ic_image_placeholder)
+                }
+            } else if (imageUri != null) {
+                setImageURI(imageUri)
+            } else {
+                setImageResource(R.drawable.ic_image_placeholder)
+            }
+            
+            setOnClickListener { onClick() }
+        }
+
+        cardView.addView(imageView)
+        return cardView
     }
 
     override fun onDestroyView() {

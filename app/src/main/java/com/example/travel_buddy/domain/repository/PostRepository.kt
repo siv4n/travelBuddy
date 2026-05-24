@@ -5,8 +5,8 @@ import com.example.travel_buddy.core.common.AppResult
 import com.example.travel_buddy.data.model.Post
 
 interface PostRepository {
-    suspend fun createPost(post: Post, imageUri: Uri): AppResult<Unit>
-    suspend fun updatePost(postId: String, post: Post, imageUri: Uri?): AppResult<Unit>
+    suspend fun createPost(post: Post, imageUris: List<Uri>): AppResult<Unit>
+    suspend fun updatePost(postId: String, post: Post, imageUris: List<Uri>?): AppResult<Unit>
     suspend fun deletePost(postId: String): AppResult<Unit>
     suspend fun getPostById(postId: String): AppResult<Post>
     suspend fun getAllPosts(forceRefresh: Boolean = false): AppResult<List<Post>>

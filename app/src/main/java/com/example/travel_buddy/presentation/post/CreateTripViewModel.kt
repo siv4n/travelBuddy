@@ -32,13 +32,13 @@ class CreateTripViewModel(
     private val _locationLoading = MutableLiveData(false)
     val locationLoading: LiveData<Boolean> = _locationLoading
 
-    private var selectedImageUri: Uri? = null
+    private var selectedImageUris: List<Uri> = emptyList()
 
-    fun setImageUri(uri: Uri) {
-        selectedImageUri = uri
+    fun setImageUris(uris: List<Uri>) {
+        selectedImageUris = uris
     }
 
-    fun getSelectedImageUri(): Uri? = selectedImageUri
+    fun getSelectedImageUris(): List<Uri> = selectedImageUris
 
     fun searchLocations(query: String) {
         viewModelScope.launch {
@@ -67,8 +67,8 @@ class CreateTripViewModel(
             return
         }
 
-        val uri = selectedImageUri
-        if (uri == null) {
+        val uris = selectedImageUris
+        if (uris.isEmpty()) {
             _uiState.value = CreateTripState.Error("Please select a photo")
             return
         }
@@ -81,7 +81,7 @@ class CreateTripViewModel(
 
         _uiState.value = CreateTripState.Loading
         viewModelScope.launch {
-            when (val result = repository.createPost(post, uri)) {
+            when (val result = repository.createPost(post, uris)) {
                 is AppResult.Success -> {
                     _uiState.value = CreateTripState.Success
                 }

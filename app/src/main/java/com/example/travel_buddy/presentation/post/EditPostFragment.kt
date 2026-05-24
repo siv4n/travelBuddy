@@ -1,11 +1,13 @@
 package com.example.travel_buddy.presentation.post
 
 import android.os.Bundle
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -15,6 +17,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import coil.load
+import com.example.travel_buddy.R
 import com.example.travel_buddy.databinding.FragmentEditPostBinding
 import com.example.travel_buddy.di.ServiceLocator
 import com.google.firebase.auth.FirebaseAuth
@@ -39,11 +42,73 @@ class EditPostFragment : Fragment() {
         )
     }
 
-    private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            viewModel.setImageUri(uri)
-            binding.ivTripPreview.setImageURI(uri)
+    private val pickImages = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris != null && uris.isNotEmpty()) {
+            val selectedUris = uris.take(5)
+            viewModel.setImageUris(selectedUris)
+            updateImagePreviews(selectedUris)
+        }
+    }
+
+    private fun updateImagePreviews(uris: List<android.net.Uri>) {
+        if (uris.isNotEmpty()) {
+            binding.ivTripPreview.setImageURI(uris[0])
             binding.ivTripPreview.visibility = View.VISIBLE
+            
+            binding.llThumbnailPreviews.removeAllViews()
+            if (uris.isNotEmpty()) {
+                binding.llThumbnailPreviews.visibility = View.VISIBLE
+                for (i in 0 until uris.size) {
+                    val uri = uris[i]
+                    val isFirst = (i == 0)
+                    val card = createThumbnailCard(
+                        sizeDp = 56,
+                        isFirst = isFirst,
+                        imageUri = uri
+                    ) {
+                        binding.ivTripPreview.setImageURI(uri)
+                    }
+                    binding.llThumbnailPreviews.addView(card)
+                }
+            } else {
+                binding.llThumbnailPreviews.visibility = View.GONE
+            }
+        } else {
+            binding.ivTripPreview.visibility = View.GONE
+            binding.llThumbnailPreviews.visibility = View.GONE
+        }
+    }
+
+    private fun loadExistingPreviews(urls: List<String>) {
+        if (urls.isNotEmpty()) {
+            binding.ivTripPreview.load(urls[0]) {
+                crossfade(true)
+            }
+            binding.ivTripPreview.visibility = View.VISIBLE
+            
+            binding.llThumbnailPreviews.removeAllViews()
+            if (urls.isNotEmpty()) {
+                binding.llThumbnailPreviews.visibility = View.VISIBLE
+                for (i in 0 until urls.size) {
+                    val url = urls[i]
+                    val isFirst = (i == 0)
+                    val card = createThumbnailCard(
+                        sizeDp = 56,
+                        isFirst = isFirst,
+                        imageUrl = url
+                    ) {
+                        binding.ivTripPreview.load(url) {
+                            crossfade(true)
+                        }
+                    }
+                    binding.llThumbnailPreviews.addView(card)
+                }
+            } else {
+                binding.llThumbnailPreviews.visibility = View.GONE
+            }
+        } else {
+            binding.ivTripPreview.visibility = View.GONE
+            binding.llThumbnailPreviews.visibility = View.GONE
         }
     }
 
@@ -67,6 +132,11 @@ class EditPostFragment : Fragment() {
         setupLocationAutocomplete()
         setupListeners()
         observeViewModel()
+
+        val existingUris = viewModel.getSelectedImageUris()
+        if (existingUris != null) {
+            updateImagePreviews(existingUris)
+        }
     }
 
     private fun setupLocationAutocomplete() {
@@ -79,11 +149,11 @@ class EditPostFragment : Fragment() {
 
     private fun setupListeners() {
         binding.btnAddPhoto.setOnClickListener {
-            pickImage.launch("image/*")
+            pickImages.launch("image/*")
         }
 
         binding.ivTripPreview.setOnClickListener {
-            pickImage.launch("image/*")
+            pickImages.launch("image/*")
         }
 
         binding.btnSave.setOnClickListener {
@@ -121,13 +191,15 @@ class EditPostFragment : Fragment() {
                     binding.etTitle.setText(post.title)
                     binding.etLocation.setText(post.location, false)
                     binding.etDescription.setText(post.description)
-                    if (!post.imageUrl.isNullOrEmpty()) {
-                        binding.ivTripPreview.load(post.imageUrl) {
-                            crossfade(true)
-                        }
-                        binding.ivTripPreview.visibility = View.VISIBLE
+                    
+                    val newlyPicked = viewModel.getSelectedImageUris()
+                    if (newlyPicked != null) {
+                        updateImagePreviews(newlyPicked)
                     } else {
-                        binding.ivTripPreview.visibility = View.GONE
+                        val urls = post.imageUrls.ifEmpty {
+                            if (post.imageUrl.isNotEmpty()) listOf(post.imageUrl) else emptyList()
+                        }
+                        loadExistingPreviews(urls)
                     }
                 }
             }
@@ -174,6 +246,55 @@ class EditPostFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private fun createThumbnailCard(
+        sizeDp: Int,
+        isFirst: Boolean,
+        imageUrl: String? = null,
+        imageUri: android.net.Uri? = null,
+        onClick: () -> Unit
+    ): androidx.cardview.widget.CardView {
+        val context = requireContext()
+        val density = resources.displayMetrics.density
+        
+        val cardView = androidx.cardview.widget.CardView(context).apply {
+            val sizePx = (sizeDp * density).toInt()
+            val marginStartPx = if (isFirst) 0 else (8 * density).toInt()
+            
+            val lp = android.widget.LinearLayout.LayoutParams(sizePx, sizePx).apply {
+                marginStart = marginStartPx
+            }
+            layoutParams = lp
+            radius = (8 * density)
+            cardElevation = (2 * density)
+            preventCornerOverlap = false
+            setCardBackgroundColor(android.graphics.Color.WHITE)
+        }
+
+        val imageView = ImageView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            val paddingPx = (2 * density).toInt()
+            setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+            
+            if (imageUrl != null) {
+                load(imageUrl) {
+                    crossfade(true)
+                    placeholder(com.example.travel_buddy.R.drawable.ic_image_placeholder)
+                    error(com.example.travel_buddy.R.drawable.ic_image_placeholder)
+                }
+            } else if (imageUri != null) {
+                setImageURI(imageUri)
+            } else {
+                setImageResource(com.example.travel_buddy.R.drawable.ic_image_placeholder)
+            }
+            
+            setOnClickListener { onClick() }
+        }
+
+        cardView.addView(imageView)
+        return cardView
     }
 
     override fun onDestroyView() {

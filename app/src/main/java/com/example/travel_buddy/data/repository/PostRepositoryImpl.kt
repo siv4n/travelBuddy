@@ -11,9 +11,21 @@ import kotlinx.coroutines.withContext
 class PostRepositoryImpl(
     private val dataSource: FirebasePostDataSource
 ) : PostRepository {
-    override suspend fun createPost(post: Post, imageUri: Uri): AppResult<Unit> {
+    override suspend fun createPost(post: Post, imageUris: List<Uri>): AppResult<Unit> {
         return withContext(Dispatchers.IO) {
-            dataSource.createPost(post, imageUri)
+            dataSource.createPost(post, imageUris)
+        }
+    }
+
+    override suspend fun updatePost(postId: String, post: Post, imageUris: List<Uri>?): AppResult<Unit> {
+        return withContext(Dispatchers.IO) {
+            dataSource.updatePost(postId, post, imageUris)
+        }
+    }
+
+    override suspend fun deletePost(postId: String): AppResult<Unit> {
+        return withContext(Dispatchers.IO) {
+            dataSource.deletePost(postId)
         }
     }
 

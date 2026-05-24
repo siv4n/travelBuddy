@@ -14,23 +14,26 @@ class FirebasePostDataSource(
     private val storage: FirebaseStorage,
     private val auth: FirebaseAuth
 ) {
-    suspend fun createPost(post: Post, imageUri: Uri): AppResult<Unit> {
+    suspend fun createPost(post: Post, imageUris: List<Uri>): AppResult<Unit> {
         return try {
             val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
             val postId = UUID.randomUUID().toString()
             
-            // Upload image to Firebase Storage
-            val imageRef = storage.reference.child("post_images/$postId.jpg")
-            try {
-                imageRef.putFile(imageUri).await()
-            } catch (e: Exception) {
-                return AppResult.Error("Image upload failed: ${e.message}", e)
+            // Upload all images to Firebase Storage
+            val downloadUrls = mutableListOf<String>()
+            for (index in imageUris.indices) {
+                val uri = imageUris[index]
+                val imageRef = storage.reference.child("post_images/${postId}_${index}.jpg")
+                try {
+                    imageRef.putFile(uri).await()
+                    val downloadUrl = imageRef.downloadUrl.await().toString()
+                    downloadUrls.add(downloadUrl)
+                } catch (e: Exception) {
+                    return AppResult.Error("Image upload failed for index $index: ${e.message}", e)
+                }
             }
-            val downloadUrl = try {
-                imageRef.downloadUrl.await().toString()
-            } catch (e: Exception) {
-                return AppResult.Error("Failed to obtain uploaded image URL: ${e.message}", e)
-            }
+            
+            val primaryImageUrl = downloadUrls.firstOrNull() ?: ""
             
             // Fetch current user's profile info to store in the post document
             var authorUsername = ""
@@ -52,11 +55,11 @@ class FirebasePostDataSource(
             }
 
             // Create post document in Firestore
-            // Assumes Post model has copy() method (is a data class)
             val finalPost = post.copy(
                 postId = postId,
                 authorId = uid,
-                imageUrl = downloadUrl,
+                imageUrl = primaryImageUrl,
+                imageUrls = downloadUrls,
                 timestamp = System.currentTimeMillis(),
                 authorUsername = authorUsername,
                 authorImageUrl = authorImageUrl
@@ -227,7 +230,7 @@ class FirebasePostDataSource(
         }
     }
 
-    suspend fun updatePost(postId: String, post: Post, imageUri: Uri?): AppResult<Unit> {
+    suspend fun updatePost(postId: String, post: Post, imageUris: List<Uri>?): AppResult<Unit> {
         return try {
             val uid = auth.currentUser?.uid ?: return AppResult.Error("User not logged in")
 
@@ -239,12 +242,41 @@ class FirebasePostDataSource(
             }
 
             // Handle image update if provided
-            val imageUrl = if (imageUri != null) {
-                val imageRef = storage.reference.child("post_images/$postId.jpg")
-                imageRef.putFile(imageUri).await()
-                imageRef.downloadUrl.await().toString()
+            val (primaryUrl, allUrls) = if (imageUris != null) {
+                // First delete old images from storage
+                val existingUrls = existingPost.imageUrls
+                if (existingUrls.isNotEmpty()) {
+                    for (index in existingUrls.indices) {
+                        try {
+                            storage.reference.child("post_images/${postId}_${index}.jpg").delete().await()
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+                    }
+                } else {
+                    try {
+                        storage.reference.child("post_images/$postId.jpg").delete().await()
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+                }
+
+                // Upload new images
+                val downloadUrls = mutableListOf<String>()
+                for (index in imageUris.indices) {
+                    val uri = imageUris[index]
+                    val imageRef = storage.reference.child("post_images/${postId}_${index}.jpg")
+                    try {
+                        imageRef.putFile(uri).await()
+                        val downloadUrl = imageRef.downloadUrl.await().toString()
+                        downloadUrls.add(downloadUrl)
+                    } catch (e: Exception) {
+                        return AppResult.Error("Image upload failed for index $index: ${e.message}", e)
+                    }
+                }
+                Pair(downloadUrls.firstOrNull() ?: "", downloadUrls)
             } else {
-                existingPost.imageUrl
+                Pair(existingPost.imageUrl, existingPost.imageUrls)
             }
 
             // Fetch current user's profile info to store in the post document
@@ -269,7 +301,8 @@ class FirebasePostDataSource(
             val updatedPost = post.copy(
                 postId = postId,
                 authorId = uid,
-                imageUrl = imageUrl,
+                imageUrl = primaryUrl,
+                imageUrls = allUrls,
                 timestamp = existingPost.timestamp,
                 authorUsername = authorUsername,
                 authorImageUrl = authorImageUrl
@@ -293,10 +326,27 @@ class FirebasePostDataSource(
                 return AppResult.Error("You can only delete your own posts")
             }
 
-            // Delete the post image from storage
+            // Delete the post images from storage
             try {
-                val imageRef = storage.reference.child("post_images/$postId.jpg")
-                imageRef.delete().await()
+                val urls = post?.imageUrls ?: emptyList()
+                if (urls.isNotEmpty()) {
+                    for (index in urls.indices) {
+                        try {
+                            val imageRef = storage.reference.child("post_images/${postId}_${index}.jpg")
+                            imageRef.delete().await()
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+                    }
+                } else {
+                    // Fallback for single image posts
+                    try {
+                        val imageRef = storage.reference.child("post_images/$postId.jpg")
+                        imageRef.delete().await()
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+                }
             } catch (e: Exception) {
                 // Image might not exist, continue with deletion
             }

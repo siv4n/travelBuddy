@@ -7,6 +7,7 @@ data class Post(
     val location: String = "",
     val description: String = "",
     val imageUrl: String = "",
+    val imageUrls: List<String> = emptyList(),
     val timestamp: Long = 0L,
     // transient UI fields (not necessarily stored in Firestore)
     val likesCount: Int = 0,

@@ -49,17 +49,19 @@ class TripDetailViewModel(
     fun toggleLike() {
         val currentState = _uiState.value
         if (currentState is TripDetailState.Success) {
-            val newState = !currentState.isLiked
-            _uiState.value = currentState.copy(isLiked = newState)
-            
+            val newIsLiked = !currentState.isLiked
+            val newLikesCount = if (newIsLiked) {
+                currentState.post.likesCount + 1
+            } else {
+                currentState.post.likesCount - 1
+            }
+            val updatedPost = currentState.post.copy(likesCount = newLikesCount, isLiked = newIsLiked)
+            _uiState.value = currentState.copy(post = updatedPost, isLiked = newIsLiked)
+
             viewModelScope.launch {
                 val result = repository.toggleLike(postId)
                 if (result is AppResult.Error) {
                     _uiState.value = currentState
-                } else if (result is AppResult.Success) {
-                    if (result.data != newState) {
-                        _uiState.value = currentState.copy(isLiked = result.data)
-                    }
                 }
             }
         }
