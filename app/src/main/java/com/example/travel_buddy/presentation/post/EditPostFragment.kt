@@ -9,30 +9,38 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.ImageView
 import android.widget.Toast
-import coil.load
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import com.example.travel_buddy.databinding.FragmentCreateTripBinding
-import com.google.android.material.snackbar.Snackbar
+import coil.load
+import com.example.travel_buddy.R
+import com.example.travel_buddy.databinding.FragmentEditPostBinding
 import com.example.travel_buddy.di.ServiceLocator
-import com.example.travel_buddy.presentation.util.LocationPermissionHelper
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
-class CreateTripFragment : Fragment() {
+class EditPostFragment : Fragment() {
 
-    private var _binding: FragmentCreateTripBinding? = null
+    private var _binding: FragmentEditPostBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: CreateTripViewModel by viewModels {
-        CreateTripViewModelFactory(
-            ServiceLocator.postRepository,
-            ServiceLocator.locationRepository
-        )
+    private val postId: String by lazy {
+        arguments?.getString("postId") ?: ""
     }
 
-    private lateinit var locationPermissionHelper: LocationPermissionHelper
+    private var isDeleting = false
+
+    private val viewModel: EditPostViewModel by viewModels {
+        EditPostViewModelFactory(
+            ServiceLocator.postRepository,
+            ServiceLocator.locationRepository,
+            postId
+        )
+    }
 
     private val pickImages = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris != null && uris.isNotEmpty()) {
@@ -71,24 +79,62 @@ class CreateTripFragment : Fragment() {
         }
     }
 
+    private fun loadExistingPreviews(urls: List<String>) {
+        if (urls.isNotEmpty()) {
+            binding.ivTripPreview.load(urls[0]) {
+                crossfade(true)
+            }
+            binding.ivTripPreview.visibility = View.VISIBLE
+            
+            binding.llThumbnailPreviews.removeAllViews()
+            if (urls.isNotEmpty()) {
+                binding.llThumbnailPreviews.visibility = View.VISIBLE
+                for (i in 0 until urls.size) {
+                    val url = urls[i]
+                    val isFirst = (i == 0)
+                    val card = createThumbnailCard(
+                        sizeDp = 56,
+                        isFirst = isFirst,
+                        imageUrl = url
+                    ) {
+                        binding.ivTripPreview.load(url) {
+                            crossfade(true)
+                        }
+                    }
+                    binding.llThumbnailPreviews.addView(card)
+                }
+            } else {
+                binding.llThumbnailPreviews.visibility = View.GONE
+            }
+        } else {
+            binding.ivTripPreview.visibility = View.GONE
+            binding.llThumbnailPreviews.visibility = View.GONE
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentCreateTripBinding.inflate(inflater, container, false)
+        _binding = FragmentEditPostBinding.inflate(inflater, container, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        locationPermissionHelper = LocationPermissionHelper(this)
+        if (postId.isEmpty()) {
+            Toast.makeText(requireContext(), "Error: Post ID missing", Toast.LENGTH_SHORT).show()
+            findNavController().navigateUp()
+            return
+        }
+
         setupLocationAutocomplete()
         setupListeners()
         observeViewModel()
 
         val existingUris = viewModel.getSelectedImageUris()
-        if (existingUris.isNotEmpty()) {
+        if (existingUris != null) {
             updateImagePreviews(existingUris)
         }
     }
@@ -105,54 +151,56 @@ class CreateTripFragment : Fragment() {
         binding.btnAddPhoto.setOnClickListener {
             pickImages.launch("image/*")
         }
-        
-        // Also allow clicking the preview area to select an image
+
         binding.ivTripPreview.setOnClickListener {
             pickImages.launch("image/*")
-        }
-
-        // Request location permissions when location field is focused
-        binding.etLocation.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && !locationPermissionHelper.hasLocationPermission()) {
-                locationPermissionHelper.requestLocationPermissions()
-            }
         }
 
         binding.btnSave.setOnClickListener {
             val title = binding.etTitle.text.toString()
             val location = binding.etLocation.text.toString()
             val description = binding.etDescription.text.toString()
-
-            viewModel.createTrip(title, location, description)
+            viewModel.updatePost(title, location, description)
         }
 
-        binding.ivBackCreateTrip.setOnClickListener {
+        binding.btnDelete.setOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Delete Post")
+                .setMessage("Are you sure you want to delete this post?")
+                .setPositiveButton("Delete") { _, _ ->
+                    isDeleting = true
+                    viewModel.deletePost()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        binding.toolbarEditPost.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
     }
 
     private fun observeViewModel() {
-        viewModel.uiState.observe(viewLifecycleOwner) { state ->
-            when (state) {
-                is CreateTripState.Idle -> {
-                    binding.progressBar.visibility = View.GONE
-                    binding.btnSave.isEnabled = true
-                }
-                is CreateTripState.Loading -> {
-                    binding.progressBar.visibility = View.VISIBLE
-                    binding.btnSave.isEnabled = false
-                }
-                is CreateTripState.Success -> {
-                    binding.progressBar.visibility = View.GONE
-                    Snackbar.make(binding.root, "Trip created successfully!", Snackbar.LENGTH_SHORT).show()
-                    val previousEntry = findNavController().previousBackStackEntry
-                    previousEntry?.savedStateHandle?.set("post_created", true)
+        viewModel.postData.observe(viewLifecycleOwner) { post ->
+            if (post != null) {
+                val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+                if (currentUserId == null || post.authorId != currentUserId) {
+                    Toast.makeText(requireContext(), "You can only edit your own posts", Toast.LENGTH_SHORT).show()
                     findNavController().navigateUp()
-                }
-                is CreateTripState.Error -> {
-                    binding.progressBar.visibility = View.GONE
-                    binding.btnSave.isEnabled = true
-                    Snackbar.make(binding.root, state.message, Snackbar.LENGTH_LONG).show()
+                } else {
+                    binding.etTitle.setText(post.title)
+                    binding.etLocation.setText(post.location, false)
+                    binding.etDescription.setText(post.description)
+                    
+                    val newlyPicked = viewModel.getSelectedImageUris()
+                    if (newlyPicked != null) {
+                        updateImagePreviews(newlyPicked)
+                    } else {
+                        val urls = post.imageUrls.ifEmpty {
+                            if (post.imageUrl.isNotEmpty()) listOf(post.imageUrl) else emptyList()
+                        }
+                        loadExistingPreviews(urls)
+                    }
                 }
             }
         }
@@ -165,15 +213,38 @@ class CreateTripFragment : Fragment() {
             )
             (binding.etLocation as? AutoCompleteTextView)?.setAdapter(adapter)
         }
-    }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        
-        if (locationPermissionHelper.onPermissionResult(requestCode, permissions, grantResults)) {
-            Toast.makeText(requireContext(), "Location permission granted", Toast.LENGTH_SHORT).show()
-        } else if (requestCode == LocationPermissionHelper.LOCATION_PERMISSION_REQUEST_CODE) {
-            Toast.makeText(requireContext(), "Location permission denied. You can still enter location manually.", Toast.LENGTH_SHORT).show()
+        viewModel.uiState.observe(viewLifecycleOwner) { state ->
+            when (state) {
+                is EditPostState.Idle -> {
+                    binding.progressBar.visibility = View.GONE
+                    binding.btnSave.isEnabled = true
+                    binding.btnDelete.isEnabled = true
+                }
+                is EditPostState.Loading -> {
+                    binding.progressBar.visibility = View.VISIBLE
+                    binding.btnSave.isEnabled = false
+                    binding.btnDelete.isEnabled = false
+                }
+                is EditPostState.Success -> {
+                    binding.progressBar.visibility = View.GONE
+                    val prev = findNavController().previousBackStackEntry
+                    if (isDeleting) {
+                        Toast.makeText(requireContext(), "Post deleted successfully!", Toast.LENGTH_SHORT).show()
+                        prev?.savedStateHandle?.set("post_deleted", postId)
+                    } else {
+                        Toast.makeText(requireContext(), "Post updated successfully!", Toast.LENGTH_SHORT).show()
+                        prev?.savedStateHandle?.set("post_edited", postId)
+                    }
+                    findNavController().navigateUp()
+                }
+                is EditPostState.Error -> {
+                    binding.progressBar.visibility = View.GONE
+                    binding.btnSave.isEnabled = true
+                    binding.btnDelete.isEnabled = true
+                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
